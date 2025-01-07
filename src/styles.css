@@ -1,0 +1,183 @@
+/* 
+╔══════════════════════════════════════════════════════════════════════════════════════╗
+║ COMBO NOTATIONS                                                                      ║
+╚══════════════════════════════════════════════════════════════════════════════════════╝ 
+*/
+
+/* Set image size */
+.normStyle {
+	height: 1.3rem;
+}
+
+/* Hide neutral input */
+.hideStyle {
+	display: none;
+}
+
+/* Gap between motion and button images */
+.normStyle + .normStyle {
+	margin-left: 4px;
+}
+
+/* Alter font style to match images */
+.image-notation {
+	font-family: Tahoma, sans-serif;
+	font-size: 18px;
+	font-weight: bold;
+}
+
+/* keep notations together */
+.notation {
+	white-space: normal;
+	word-break: keep-all;
+}
+
+/* align images with text */
+.notation img {
+	vertical-align: middle;
+}
+
+/* outdated combo message */
+.warning {
+	background-color: var(--background-primary);
+	color: var(--interactive-accent);
+	padding-left: 0.5em;
+	padding-right: 0.5em;
+	padding-bottom: 0.2em;
+	border-radius: 5px;
+}
+
+/* 
+╔══════════════════════════════════════════════════════════════════════════════════════╗
+║ NOTATION BUTTON                                                                      ║
+╚══════════════════════════════════════════════════════════════════════════════════════╝ 
+*/
+
+button.combo {
+	--border: 2px;
+	--slant: 0.7em;
+	--color: var(--interactive-accent);
+
+	font-size: 18px;
+	padding: 0.4em 1.2em;
+	border: none;
+	cursor: pointer;
+	font-weight: bold;
+	color: var(--color);
+	background: linear-gradient(to bottom left, var(--color) 50%, #0000 50.1%) top
+		right, linear-gradient(to top right, var(--color) 50%, #0000 50.1%) bottom
+		left;
+	background-size: calc(var(--slant) + 1.3 * var(--border))
+		calc(var(--slant) + 1.3 * var(--border));
+	background-repeat: no-repeat;
+	box-shadow: 0 0 0 200px inset var(--s, #0000), 0 0 0 var(--border) inset
+		var(--color);
+	clip-path: polygon(
+		0 0,
+		calc(100% - var(--slant)) 0,
+		100% var(--slant),
+		100% 100%,
+		var(--slant) 100%,
+		0 calc(100% - var(--slant))
+	);
+	transition: color var(--t, 0.3s), background-size 0.3s;
+}
+button.combo:focus-visible {
+	outline-offset: calc(-1 * var(--border));
+	outline: var(--border) solid #000c;
+	clip-path: none;
+	background-size: 0 0;
+}
+button.combo:hover,
+button.combo:active {
+	background-size: 100% 100%;
+	color: var(--color-base-30);
+	--t: 0.2s 0.1s;
+}
+button.combo:active {
+	--s: #0005;
+	transition: none;
+}
+@media screen and (max-width: 500px) {
+	button.combo {
+		float: none;
+		display: flex;
+		justify-content: center;
+		margin-top: 0px !important;
+	}
+}
+
+/* 
+╔══════════════════════════════════════════════════════════════════════════════════════╗
+║ SETTINGS TAB                                                                         ║
+╚══════════════════════════════════════════════════════════════════════════════════════╝ 
+*/
+
+/* custom setting items description */
+.setting-item-description-custom {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	margin: 0;
+	padding-top: 0;
+	padding-bottom: 0.75em;
+	line-height: var(--line-height-tight);
+}
+
+.setting-item:is(:has(+ .setting-item-description-custom)) {
+	padding-bottom: 0;
+}
+
+/* Highlight profile link */
+.hlt-interaction {
+	color: var(--text-accent);
+	cursor: pointer;
+}
+
+/* gameList message */
+.gamesList {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	text-align: center;
+}
+
+/* individual game */
+.individual-game {
+	color: var(--text-accent);
+	display: inline-block;
+	word-break: break-all;
+	white-space: pre;
+}
+
+/* game seperator */
+.individual-game::after {
+	color: white;
+	content: "  |  ";
+}
+
+/* hide seperator if last game in list */
+.individual-game:last-of-type::after {
+	content: "";
+}
+
+/* no games message */
+.no-games {
+	color: var(--text-accent);
+	text-align: center;
+}
+
+/* mobile adjustments */
+@media screen and (max-width: 500px) {
+	.setting-item:is(:has(+ .setting-item-description-custom)) {
+		padding-bottom: 1rem !important;
+	}
+	.individual-game {
+		display: block;
+		word-break: break-all;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.individual-game::after {
+		content: "";
+	}
+}
