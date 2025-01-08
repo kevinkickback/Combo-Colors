@@ -30,9 +30,7 @@ export default class comboColors extends Plugin {
 				let text = textElement.innerHTML;
 
 				text = text.replace(/=:(.+?):=/g, (match, p1) => {
-					const span = document.createElement("span");
-					span.classList.add("notation");
-					span.textContent = p1;
+					const span = createEl("span", { cls: "notation", text: p1 });
 					return span.outerHTML;
 				});
 				textElement.innerHTML = text;
@@ -58,7 +56,7 @@ export default class comboColors extends Plugin {
 
 					if (!profile || !inputs[profile]) {
 						notation.textContent = "[ No notation profile in frontmatter ]";
-						notation.classList.add("warning");
+						notation.addClass("warning");
 						continue;
 					}
 
@@ -73,24 +71,23 @@ export default class comboColors extends Plugin {
 								textContent = textContent.replace(
 									new RegExp(regex, "g"),
 									(match) => {
-										const spanElement = document.createElement("span");
-										spanElement.textContent = match;
+										const spanElement = createEl("span", { text: match });
 										spanElement.style.color = mappedColor;
 										return spanElement.outerHTML;
 									},
 								);
 							}
 
-							const fragment = document.createDocumentFragment();
-							const tempDiv = document.createElement("div");
+							const tempDiv = createEl("div");
 							tempDiv.innerHTML = textContent;
 
+							const fragment = createFragment();
 							while (tempDiv.firstChild) {
 								fragment.appendChild(tempDiv.firstChild);
 							}
 
 							if (parentNode) {
-								parentNode.replaceChild(fragment, childNode);
+								childNode.replaceWith(fragment);
 							}
 						}
 					}
@@ -136,7 +133,7 @@ export default class comboColors extends Plugin {
 					for (const notation of Array.from(notations)) {
 						if (notation.dataset.textMode) {
 							const html = notation.dataset.textMode;
-							const tempDiv = document.createElement("div");
+							const tempDiv = createEl("div");
 							tempDiv.innerHTML = html;
 							notation.innerHTML = "";
 							while (tempDiv.firstChild) {
@@ -154,7 +151,7 @@ export default class comboColors extends Plugin {
 						if (profile || inputs[profile as keyof typeof inputs]) {
 							notation.textContent = notation.dataset.textMode || "";
 						}
-						notation.classList.remove("image-notation");
+						notation.removeClass("image-notation");
 					}
 
 					const button =
@@ -274,11 +271,14 @@ export default class comboColors extends Plugin {
 			let html = notation.innerHTML;
 			if (!notation.dataset.textModeColor)
 				notation.dataset.textModeColor = html;
-			notation.classList.toggle("image-notation");
+			notation.toggleClass(
+				"image-notation",
+				!notation.hasClass("image-notation"),
+			);
 
 			if (html.includes("<img")) {
 				const html = notation.dataset.textModeColor;
-				const tempDiv = document.createElement("div");
+				const tempDiv = createEl("div");
 				tempDiv.innerHTML = html;
 				notation.innerHTML = "";
 				while (tempDiv.firstChild) {
@@ -309,7 +309,7 @@ export default class comboColors extends Plugin {
 					})
 					.join("");
 
-				const tempDiv = document.createElement("div");
+				const tempDiv = createEl("div");
 				tempDiv.innerHTML = html;
 				notation.innerHTML = "";
 				while (tempDiv.firstChild) {
