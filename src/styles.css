@@ -4,46 +4,63 @@
 ╚══════════════════════════════════════════════════════════════════════════════════════╝ 
 */
 
-/* Set image size */
-.normStyle {
-	height: 1.3rem;
-}
-
-/* Hide neutral input */
-.hideStyle {
-	display: none;
-}
-
-/* Gap between motion and button images */
-.normStyle + .normStyle {
-	margin-left: 4px;
-}
-
-/* Alter font style to match images */
-.image-notation {
-	font-family: Tahoma, sans-serif;
-	font-size: 18px;
-	font-weight: bold;
-}
-
-/* keep notations together */
+/* keep notations together  */
 .notation {
 	white-space: normal;
 	word-break: keep-all;
 }
 
-/* align images with text */
-.notation img {
+/* Adjust font when icons displayed */
+.imageMode {
+	font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+	font-weight: bold;
+	font-size: 1rem;
+}
+
+/* Set btton icon sizes */
+.notationButtonIcons {
+	height: 1.4rem;
 	vertical-align: middle;
+}
+
+/* Set motion icon sizes */
+.notationMotionIcons {
+	height: 1.6rem;
+	vertical-align: middle;
+}
+
+/* Hide certain icons */
+.notationHidden {
+	display: none;
+}
+
+img.notationMotionIcons[alt="Down"],
+img.notationMotionIcons[alt="Back"],
+img.notationMotionIcons[alt="QCB"] {
+	margin-right: -0.2rem;
+}
+
+img.notationMotionIcons[alt="Down"],
+img.notationMotionIcons[alt="QCF"],
+img.notationMotionIcons[alt="Up Forward"],
+img.notationMotionIcons[alt="Forward"]
+	+ img.notationMotionIcons[alt="Forward"] {
+	margin-left: -0.2rem;
+}
+
+img.notationMotionIcons[alt="QCF"] {
+	margin-right: 0.2rem;
 }
 
 /* outdated combo message */
 .warning {
 	background-color: var(--background-primary);
 	color: var(--interactive-accent);
-	padding-left: 0.5em;
-	padding-right: 0.5em;
+	padding-left: 0.25em;
+	padding-right: 0.25em;
 	padding-bottom: 0.2em;
+	margin-left: 0.2em;
+	margin-right: 0.2em;
 	border-radius: 5px;
 }
 

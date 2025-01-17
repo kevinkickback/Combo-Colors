@@ -121,9 +121,9 @@ export const inputMap = {
 		},
 	},
 };
+
 export const DEFAULT_SETTINGS: { [key: string]: string } = {
 	selectedProfile: "asw",
-	// default colors for each profile
 	...Object.entries(inputMap).reduce(
 		(acc, [profileKey, profile]) => {
 			for (const [colorKey, colorValue] of Object.entries(profile.colors)) {
@@ -266,9 +266,13 @@ export class settingsTab extends PluginSettingTab {
 							defaultColor;
 						await this.plugin.saveSettings();
 						this.display();
+						// update colors in all open notes
 						this.plugin.updateColors(
 							this.plugin.app.workspace
 								.getLeavesOfType("markdown")
+								.filter(
+									(leaf) => (leaf.view as MarkdownView).getMode() === "preview",
+								)
 								.map((leaf) => leaf.view as MarkdownView),
 						);
 					});
