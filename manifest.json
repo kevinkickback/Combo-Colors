@@ -5,6 +5,6 @@
 	"minAppVersion": "0.15.0",
 	"description": "Automatically apply color to fighting game combo notations.",
 	"author": "Kevin Bowen",
-	"authorUrl": "https://github.com/kevinkickback/combo-colors",
+	"authorUrl": "",
 	"isDesktopOnly": false
 }
