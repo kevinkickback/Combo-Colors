@@ -1,19 +1,11 @@
-// ╔══════════════════════════════════════════════════════════════════════════════════════╗
-// ║ IMPORTS & DECLARATIONS                                                               ║
-// ╚══════════════════════════════════════════════════════════════════════════════════════╝
-
 import {
 	type MarkdownPostProcessorContext,
 	MarkdownView,
 	Plugin,
-	TFile,
+	type TFile,
 } from "obsidian";
 import { type Settings, settingsTab, DEFAULT_SETTINGS } from "./settings";
 import { imageMap, regPatterns } from "./patterns";
-
-// ╔══════════════════════════════════════════════════════════════════════════════════════╗
-// ║ MAIN PLUGIN CLASS                                                                    ║
-// ╚══════════════════════════════════════════════════════════════════════════════════════╝
 
 export default class comboColors extends Plugin {
 	settings: Settings;
@@ -21,49 +13,43 @@ export default class comboColors extends Plugin {
 	async onload() {
 		await this.loadSettings();
 
-		//Rregister syntax processor
+		// Register syntax processor (must be first)
 		this.registerMarkdownPostProcessor((element: HTMLElement) => {
 			const processNode = (node: Node) => {
 				if (node.nodeType === Node.TEXT_NODE) {
-					const originalText = node.textContent || "";
-					const modifiedText = originalText.replace(/=:(.+?):=/g, "$1");
-
-					if (originalText !== modifiedText) {
-						const span = element.createSpan({
-							cls: "notation",
-							text: modifiedText,
-						});
-						(node as ChildNode).replaceWith(span);
+					const modifiedText = (node.textContent || "").replace(
+						/=:(.+?):=/g,
+						"$1",
+					);
+					if (node.textContent !== modifiedText) {
+						(node as ChildNode).replaceWith(
+							element.createSpan({ cls: "notation", text: modifiedText }),
+						);
 					}
-				}
-
-				if (node.nodeType === Node.ELEMENT_NODE) {
-					node.childNodes.forEach(processNode);
+				} else if (node.nodeType === Node.ELEMENT_NODE) {
+					for (const child of node.childNodes) {
+						processNode(child);
+					}
 				}
 			};
 
-			element.childNodes.forEach(processNode);
+			for (const child of element.childNodes) {
+				processNode(child);
+			}
 		});
 
-		// Register the color processor
+		// Register color processor
 		this.registerMarkdownPostProcessor(
 			(element: HTMLElement, context: MarkdownPostProcessorContext) => {
+				const file = this.app.vault.getAbstractFileByPath(
+					context.sourcePath,
+				) as TFile;
+				const profile = this.app.metadataCache.getFileCache(file)?.frontmatter
+					?.profile as keyof typeof inputs;
+				const inputs = regPatterns(this.settings);
 				const notations = element.querySelectorAll<HTMLElement>(".notation");
 
 				for (const notation of notations) {
-					const activeView =
-						this.app.workspace.getActiveViewOfType(MarkdownView);
-					if (!activeView?.file) continue;
-
-					const fileAbstract = this.app.vault.getAbstractFileByPath(
-						activeView.file.path,
-					);
-					if (!(fileAbstract instanceof TFile)) continue;
-
-					const profile = this.app.metadataCache.getFileCache(fileAbstract)
-						?.frontmatter?.profile as keyof typeof inputs;
-					const inputs = regPatterns(this.settings);
-
 					notation.dataset.textMode = notation.textContent || "";
 
 					if (!inputs[profile]) {
@@ -71,7 +57,6 @@ export default class comboColors extends Plugin {
 						notation.addClass("warning");
 						continue;
 					}
-					notation.removeClass("warning");
 
 					for (const childNode of notation.childNodes) {
 						if (childNode.nodeType === Node.TEXT_NODE) {
@@ -91,8 +76,8 @@ export default class comboColors extends Plugin {
 
 							const tempDiv = createDiv();
 							tempDiv.innerHTML = textContent;
-
 							const fragment = createFragment();
+
 							while (tempDiv.firstChild) {
 								fragment.appendChild(tempDiv.firstChild);
 							}
@@ -121,28 +106,23 @@ export default class comboColors extends Plugin {
 			}
 		});
 
-		// Register metadata profile change event
-		let previousProfile: string | null = null;
+		// Register frontmatter profile change event
+		const profileMap = new Map<string, string | null>();
+
 		this.registerEvent(
 			this.app.metadataCache.on("changed", (file) => {
 				const metadata = this.app.metadataCache.getFileCache(file);
-				if (!metadata) return;
+				if (!metadata || !metadata.frontmatter) return;
 
-				// Extract the profile property from the frontmatter
-				const profile = metadata.frontmatter?.profile ?? null;
+				const currentProfile = metadata.frontmatter.profile ?? null;
+				const previousProfile = profileMap.get(file.path) ?? null;
 
-				// Perform the action if the profile key itself or its value has changed
-				if (profile !== previousProfile) {
-					previousProfile = profile;
+				if (currentProfile !== previousProfile) {
+					profileMap.set(file.path, currentProfile);
 
-					// Iterate over all leaves of type Markdown
 					const leaves = this.app.workspace.getLeavesOfType("markdown");
-
-					// Iterate over each leaf
 					for (const leaf of leaves) {
 						const view = leaf.view as MarkdownView;
-
-						// Trigger rerender for preview mode if the view matches the file and is in preview mode
 						if (view.getMode() === "preview" && view.file === file) {
 							view.previewMode.rerender(true);
 						}
@@ -151,31 +131,29 @@ export default class comboColors extends Plugin {
 			}),
 		);
 
-		// Add the toggle-icons command
+		// Add toggle-icons command
 		this.addCommand({
 			id: "toggle-icons",
 			name: "Toggle notation icons",
 			callback: () => this.toggleNotations(),
 		});
 
-		// Detect if iconize plugin is enabled
-		const plugins = (
-			this.app as unknown as { plugins: { enabledPlugins: Set<string> } }
-		).plugins;
+		// Detect if iconize is installed & all icons loaded
+		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+		const plugins = (this.app as any).plugins;
 		if (plugins.enabledPlugins.has("obsidian-icon-folder")) {
-			setTimeout(() => {
+			const iconiz = plugins.plugins["obsidian-icon-folder"]?.api;
+			const event = iconiz.getEventEmitter();
+			event.on("allIconsLoaded", () => {
 				this.reload();
-			}, 2500);
+			});
 		}
 
 		// Add the settings tab
 		this.addSettingTab(new settingsTab(this.app, this));
 	}
 
-	// ╔══════════════════════════════════════════════════════════════════════════════════════╗
-	// ║ FIX BROKEN ICONIZE ICONS AT STARTUP                                                  ║
-	// ╚══════════════════════════════════════════════════════════════════════════════════════╝
-
+	//Re-render preview mode if broken icons detected
 	private async reload() {
 		const leaves = this.app.workspace
 			.getLeavesOfType("markdown")
@@ -193,14 +171,12 @@ export default class comboColors extends Plugin {
 			view.previewMode.rerender(true);
 		}
 	}
-	// ╔══════════════════════════════════════════════════════════════════════════════════════╗
-	// ║ UPDATE COLORS IN REAL-TIME                                                           ║
-	// ╚══════════════════════════════════════════════════════════════════════════════════════╝
 
+	// Update SVG colors in real time
 	private updateSvgFill = (settings: Settings) => {
 		const svgElements = document.querySelectorAll("svg");
 
-		for (const svg of Array.from(svgElements)) {
+		for (const svg of svgElements) {
 			const textElement = svg.querySelector("text");
 			if (textElement) {
 				const textContent = textElement.textContent?.trim();
@@ -218,6 +194,7 @@ export default class comboColors extends Plugin {
 		}
 	};
 
+	// Update TXT colors in real time (and call SVG color update)
 	public updateColors(leaves: MarkdownView[]) {
 		const inputs = regPatterns(this.settings);
 		for (const leaf of leaves) {
@@ -229,11 +206,11 @@ export default class comboColors extends Plugin {
 			if (!inputs[profile]) continue;
 			const colorsToApply = inputs[profile];
 
-			for (const notation of Array.from(notations)) {
+			for (const notation of notations) {
 				const innerSpans = (notation as HTMLElement).querySelectorAll("span");
 
 				for (const [regex, color] of colorsToApply) {
-					for (const span of Array.from(innerSpans)) {
+					for (const span of innerSpans) {
 						if (span.textContent && regex.test(span.textContent)) {
 							(span as HTMLElement).style.color = color;
 						}
@@ -244,10 +221,7 @@ export default class comboColors extends Plugin {
 		this.updateSvgFill(this.settings);
 	}
 
-	// ╔══════════════════════════════════════════════════════════════════════════════════════╗
-	// ║ TOGGLE NOTATION ICONS                                                                ║
-	// ╚══════════════════════════════════════════════════════════════════════════════════════╝
-
+	// Toggle between text and icon notations
 	private toggleNotations = () => {
 		const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
 		if (!activeView) return;
@@ -255,21 +229,19 @@ export default class comboColors extends Plugin {
 		const notations =
 			activeView.containerEl.querySelectorAll<HTMLElement>(".notation");
 		const button = activeView.containerEl.querySelector<HTMLElement>(".combo");
-
 		let validNotationsProcessed = false;
 
 		for (const notation of notations) {
 			if (notation.textContent === "[ No notation profile in frontmatter ]") {
 				continue;
 			}
-
 			validNotationsProcessed = true;
 
 			if (!notation.dataset.textMode) {
 				notation.dataset.textMode = notation.textContent || "";
 			}
 
-			notation.classList.toggle("imageMode");
+			notation.toggleClass("imageMode", !notation.hasClass("imageMode"));
 			const isImageMode =
 				notation.querySelector("svg") || notation.querySelector("img");
 
@@ -295,11 +267,15 @@ export default class comboColors extends Plugin {
 					}
 
 					if (node.nodeType === Node.ELEMENT_NODE) {
-						node.childNodes.forEach(processNode);
+						for (const child of node.childNodes) {
+							processNode(child);
+						}
 					}
 				};
 
-				notation.childNodes.forEach(processNode);
+				for (const child of notation.childNodes) {
+					processNode(child);
+				}
 			}
 		}
 
@@ -312,10 +288,6 @@ export default class comboColors extends Plugin {
 
 		this.updateColors([activeView]);
 	};
-
-	// ╔══════════════════════════════════════════════════════════════════════════════════════╗
-	// ║ SETTINGS STATE                                                                       ║
-	// ╚══════════════════════════════════════════════════════════════════════════════════════╝
 
 	onunload() {}
 

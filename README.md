@@ -1,6 +1,6 @@
 # Combo Colors
-
-Automatically apply color to fighting game combo notations and toggle between text and image modes.
+![TXT Mode Sample](assets/header.png)<br>
+<a href="https://www.vecteezy.com/free-vector/paint-brush">Paint Brush Vectors by Vecteezy</a>
 
 ## Installation
 
@@ -10,14 +10,14 @@ Automatically apply color to fighting game combo notations and toggle between te
 
 ## How to Use
 
-**1.** Add the `profile` property to your markdown frontmatter with one of these values:
+**1.** Add the `profile` property to your markdown frontmatter with one of the following values:
    - `asw` - Arc System Works style (Guilty Gear, BlazBlue, etc.)
    - `alt` - Modern Alternative style (DNF Duel, Granblue, etc.)
    - `trd` - Traditional style (Street Fighter, Marvel vs Capcom Infinite, etc.)
    - **EXAMPLE:** `profile: asw`<br><br>
 
 **2.** Wrap your combo notations with `=:` and `:=` delimiters.<br>
-   - **Example:** `=:2A > 5B > 236C:=`<br><br  >
+   - **EXAMPLE:** `=:2A > 5B > 236C:=`<br><br  >
 
 **3.** (optional) Add `` `comboButton` `` anywhere in your markdown to create a text/image toggle button. You can also use the command palette and search for "Toggle notation icons"
 
@@ -26,3 +26,6 @@ Automatically apply color to fighting game combo notations and toggle between te
 **1.** Go to Settings > Community Plugins > Combo Colors<br>
 **2.** Select the desired notation profile<br>
 **3.** Customize using the color picker
+
+## NOTE:
+This plugin was originally developed for personal use. Features such as adding or modifying profiles were not implemented, as I never needed them. Given my current schedule, it's unlikely I will work on these features in the future. However, if anyone is interested in building them, please feel free to do so—I’d be happy to commit the changes. Also, if you're looking for a much more comprehensive notation icon plugin please check out <a href="https://github.com/Loac/obsidian-fight-note">Obsidian Fight Note</a>.

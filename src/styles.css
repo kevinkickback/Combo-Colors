@@ -1,9 +1,3 @@
-/* 
-╔══════════════════════════════════════════════════════════════════════════════════════╗
-║ COMBO NOTATIONS                                                                      ║
-╚══════════════════════════════════════════════════════════════════════════════════════╝ 
-*/
-
 /* keep notations together  */
 .notation {
 	white-space: normal;
@@ -29,13 +23,10 @@
 	vertical-align: middle;
 }
 
-/* Hide certain icons */
-.notationHidden {
-	display: none;
-}
-
+/* Icon spacing adjustments */
 img.notationMotionIcons[alt="Down"],
 img.notationMotionIcons[alt="Back"],
+img.notationMotionIcons[alt="RDP"],
 img.notationMotionIcons[alt="QCB"] {
 	margin-right: -0.2rem;
 }
@@ -52,7 +43,7 @@ img.notationMotionIcons[alt="QCF"] {
 	margin-right: 0.2rem;
 }
 
-/* outdated combo message */
+/* Missing profile notation message */
 .warning {
 	background-color: var(--background-primary);
 	color: var(--interactive-accent);
@@ -64,12 +55,7 @@ img.notationMotionIcons[alt="QCF"] {
 	border-radius: 5px;
 }
 
-/* 
-╔══════════════════════════════════════════════════════════════════════════════════════╗
-║ NOTATION BUTTON                                                                      ║
-╚══════════════════════════════════════════════════════════════════════════════════════╝ 
-*/
-
+/* Notation button styling */
 button.combo {
 	--border: 2px;
 	--slant: 0.7em;
@@ -124,12 +110,6 @@ button.combo:active {
 	}
 }
 
-/* 
-╔══════════════════════════════════════════════════════════════════════════════════════╗
-║ SETTINGS TAB                                                                         ║
-╚══════════════════════════════════════════════════════════════════════════════════════╝ 
-*/
-
 /* custom setting items description */
 .setting-item-description-custom {
 	color: var(--text-muted);
@@ -139,7 +119,6 @@ button.combo:active {
 	padding-bottom: 0.75em;
 	line-height: var(--line-height-tight);
 }
-
 .setting-item:is(:has(+ .setting-item-description-custom)) {
 	padding-bottom: 0;
 }
