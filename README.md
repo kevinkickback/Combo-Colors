@@ -4,7 +4,7 @@
 
 ## Installation
 
-**1.** Download the latest release from the releases page<br>
+**1.** Download the latest release from the <a href="https://github.com/kevinkickback/Combo-Colors/releases/">releases page</a><br>
 **2.** Extract the zip file into your Obsidian vault's `.obsidian/plugins/` folder<br>
 **3.** Enable the plugin in Obsidian's Community Plugins settings
 
