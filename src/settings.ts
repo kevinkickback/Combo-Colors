@@ -3,7 +3,6 @@ import {
 	PluginSettingTab,
 	Setting,
 	Notice,
-	type MarkdownView,
 	type Plugin,
 } from "obsidian";
 
@@ -127,15 +126,11 @@ export const DEFAULT_SETTINGS: { [key: string]: string } = {
 	),
 };
 
-// ╔══════════════════════════════════════════════════════════════════════════════════════╗
-// ║ SETTINGS TAB                                                                         ║
-// ╚══════════════════════════════════════════════════════════════════════════════════════╝
-
 export class settingsTab extends PluginSettingTab {
 	plugin: Plugin & {
 		settings: Settings;
 		saveSettings: () => Promise<void>;
-		updateColors: (views: MarkdownView[]) => void;
+		updateColors: (className: string, colorValue: string) => void;
 	};
 
 	constructor(
@@ -143,25 +138,22 @@ export class settingsTab extends PluginSettingTab {
 		plugin: Plugin & {
 			settings: Settings;
 			saveSettings: () => Promise<void>;
-			updateColors: (views: MarkdownView[]) => void;
+			updateColors: (className: string, colorValue: string) => void;
 		},
 	) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
 
-	display(): void {
-		const { containerEl } = this;
-
-		containerEl.empty();
-
-		// Profile select dropdown
+	// Custom profile selection option
+	private createProfileSection(containerEl: HTMLElement): void {
 		new Setting(containerEl)
 			.setName("Notation Profile")
 			.addDropdown((dropdown) => {
 				for (const [key, value] of Object.entries(inputMap)) {
 					dropdown.addOption(key, value.name);
 				}
+
 				dropdown
 					.setValue(this.plugin.settings.selectedProfile)
 					.onChange(async (value) => {
@@ -170,142 +162,126 @@ export class settingsTab extends PluginSettingTab {
 						this.display();
 					});
 			})
-			// Profile reset button
-			.addButton((button) => {
-				button.setIcon("reset").onClick(async () => {
+			.addButton((button) =>
+				button.setIcon("reset").onClick(() =>
 					new resetModal(this.app, async () => {
 						const profile = this.plugin.settings.selectedProfile;
-						for (const [key, color] of Object.entries(
+						for (const [key] of Object.entries(
 							inputMap[profile as keyof typeof inputMap].colors,
 						)) {
-							this.plugin.settings[`${profile}_${key}`] =
-								DEFAULT_SETTINGS[`${profile}_${key}`];
+							const settingKey = `${profile}_${key}`;
+							this.plugin.settings[settingKey] = DEFAULT_SETTINGS[settingKey];
+							this.plugin.updateColors(
+								settingKey,
+								DEFAULT_SETTINGS[settingKey],
+							);
 						}
 						await this.plugin.saveSettings();
 						this.display();
-						this.plugin.updateColors(
-							this.plugin.app.workspace
-								.getLeavesOfType("markdown")
-								.map((leaf) => leaf.view as MarkdownView),
-						);
 						new Notice("Default colors restored");
-					}).open();
-				});
-			});
+					}).open(),
+				),
+			);
 
-		// Profile Select description
-		const profileSettingDesc = containerEl.createEl("p", {
+		// Description and copy functionality
+		const desc = containerEl.createEl("p", {
 			cls: "setting-item-description-custom",
 		});
+		const profileText = `profile: ${this.plugin.settings.selectedProfile}`;
 
-		const profileName = document.createElement("span");
-		profileName.textContent = `profile: ${this.plugin.settings.selectedProfile}`;
-		profileName.classList.add("hlt-interaction");
+		const span = desc.createEl("span", {
+			text: profileText,
+			cls: "hlt-interaction",
+		});
 
-		profileSettingDesc.appendChild(
-			document.createTextNode("To use this profile, add  "),
-		);
-		profileSettingDesc.appendChild(profileName);
-		profileSettingDesc.appendChild(
-			document.createTextNode("  to the file's frontmatter"),
-		);
+		desc.prepend("To use this profile, add ");
+		desc.append(" to the file's frontmatter");
 
-		// Copy to clipboard
-		profileName.onclick = () => {
-			navigator.clipboard.writeText(
-				`profile: ${this.plugin.settings.selectedProfile}`,
-			);
+		span.onclick = () => {
+			navigator.clipboard.writeText(profileText);
 			new Notice("Copied to clipboard");
 		};
+	}
 
-		// Input color picker settings
-		const selectedProfile = this.plugin.settings
+	// Color picker and reset button
+	private createColorSection(containerEl: HTMLElement): void {
+		const profile = this.plugin.settings
 			.selectedProfile as keyof typeof inputMap;
-		for (const [inputSetting, desc] of Object.entries(
-			inputMap[selectedProfile].desc,
-		)) {
+
+		const resetSingleColor = async (input: string) => {
+			const settingKey = `${profile}_${input}`;
+			this.plugin.settings[settingKey] = DEFAULT_SETTINGS[settingKey];
+			this.plugin.updateColors(settingKey, DEFAULT_SETTINGS[settingKey]);
+			await this.plugin.saveSettings();
+			this.display();
+		};
+
+		for (const [input, desc] of Object.entries(inputMap[profile].desc)) {
 			new Setting(containerEl)
-				.setName(inputSetting)
+				.setName(input)
 				.setDesc(desc as string)
 				.addText((text) => {
 					text.inputEl.type = "color";
 					text
-						.setValue(
-							this.plugin.settings[`${selectedProfile}_${inputSetting}`],
-						)
+						.setValue(this.plugin.settings[`${profile}_${input}`])
 						.onChange(async (value) => {
-							this.plugin.settings[`${selectedProfile}_${inputSetting}`] =
-								value;
+							this.plugin.settings[`${profile}_${input}`] = value;
 							await this.plugin.saveSettings();
-							// update colors in all open notes
-							this.plugin.updateColors(
-								this.plugin.app.workspace
-									.getLeavesOfType("markdown")
-									.filter(
-										(leaf) =>
-											(leaf.view as MarkdownView).getMode() === "preview",
-									)
-									.map((leaf) => leaf.view as MarkdownView),
-							);
+							this.plugin.updateColors(`${profile}_${input}`, value);
 						});
 				})
-				// Color picker reset button
-				.addButton((button) => {
-					button.setIcon("reset").onClick(async () => {
-						const defaultColor =
-							DEFAULT_SETTINGS[`${selectedProfile}_${inputSetting}`];
-						this.plugin.settings[`${selectedProfile}_${inputSetting}`] =
-							defaultColor;
-						await this.plugin.saveSettings();
-						this.display();
-						// update colors in all open notes
-						this.plugin.updateColors(
-							this.plugin.app.workspace
-								.getLeavesOfType("markdown")
-								.filter(
-									(leaf) => (leaf.view as MarkdownView).getMode() === "preview",
-								)
-								.map((leaf) => leaf.view as MarkdownView),
-						);
-					});
-				});
+				.addButton((button) =>
+					button.setIcon("reset").onClick(() => resetSingleColor(input)),
+				);
 		}
+	}
 
-		// Footnote message
-		const footnoteMessage = containerEl.createEl("p", { cls: "gamesList" });
-		footnoteMessage.appendChild(
-			document.createTextNode("Games currently using this profile:"),
-		);
-
-		// Games list display
-		const gamesListContainer = containerEl.createDiv({
+	// List of games using the profile
+	private createGamesList(containerEl: HTMLElement): void {
+		containerEl.createEl("p", {
 			cls: "gamesList",
+			text: "Games currently using this profile:",
 		});
+
+		const gamesListContainer = containerEl.createDiv({ cls: "gamesList" });
 		const gameFolders = new Set(
 			this.app.vault
 				.getFiles()
 				.filter((file) => file.extension === "md")
-				.map(
-					(note) =>
-						this.plugin.app.metadataCache.getFileCache(note)?.frontmatter
-							?.profile === this.plugin.settings.selectedProfile &&
-						note.parent?.path,
-				)
-				.filter(Boolean),
+				.map((note) => {
+					const frontmatter =
+						this.app.metadataCache.getFileCache(note)?.frontmatter;
+					return (
+						(frontmatter?.profile === this.plugin.settings.selectedProfile &&
+							note.parent?.path) ||
+						""
+					);
+				})
+				.filter((path) => path),
 		);
 
 		if (gameFolders.size) {
-			for (const folder of Array.from(gameFolders).sort()) {
-				const folders = gamesListContainer.createEl("span", {
+			const sortedFolders = Array.from(gameFolders).sort();
+			for (const folder of sortedFolders) {
+				gamesListContainer.createEl("span", {
 					cls: "individual-game",
+					text: folder,
 				});
-				folders.textContent = folder || null;
 			}
 		} else {
-			const noGamesMessage = gamesListContainer.createEl("span", {
+			gamesListContainer.createEl("span", {
 				cls: "no-games",
+				text: "None",
 			});
-			noGamesMessage.textContent = "None";
 		}
+	}
+
+	display(): void {
+		const { containerEl } = this;
+		containerEl.empty();
+
+		this.createProfileSection(containerEl);
+		this.createColorSection(containerEl);
+		// this.createGamesList(containerEl);
 	}
 }
