@@ -10,11 +10,11 @@
 
 ## How to Use
 
-**1.** Add the `profile` property to your markdown frontmatter with one of the following values:
+**1.** Add the `cc_profile` property to your markdown frontmatter with one of the following values:
    - `asw` - Arc System Works style (Guilty Gear, BlazBlue, etc.)
    - `alt` - Modern Alternative style (DNF Duel, Granblue, etc.)
    - `trd` - Traditional style (Street Fighter, Marvel vs Capcom Infinite, etc.)
-   - **EXAMPLE:** `profile: asw`<br><br>
+   - **EXAMPLE:** `cc_profile: asw`<br><br>
 
 **2.** Wrap your combo notations with `=:` and `:=` delimiters.<br>
    - **EXAMPLE:** `=:2A > 5B > 236C:=`<br><br  >
