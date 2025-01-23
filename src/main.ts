@@ -58,7 +58,7 @@ export default class comboColors extends Plugin {
 				if (!(file instanceof TFile)) return;
 
 				const profile: keyof ReturnType<typeof regPatterns> =
-					this.app.metadataCache.getFileCache(file)?.frontmatter?.profile;
+					this.app.metadataCache.getFileCache(file)?.frontmatter?.cc_profile;
 				const inputs = regPatterns(this.settings)[profile];
 
 				for (const notation of element.querySelectorAll(".notation")) {
@@ -139,7 +139,7 @@ export default class comboColors extends Plugin {
 				const metadata = this.app.metadataCache.getFileCache(file);
 				if (!metadata || !metadata.frontmatter) return;
 
-				const currentProfile = metadata.frontmatter.profile ?? null;
+				const currentProfile = metadata.frontmatter.cc_profile ?? null;
 				const previousProfile = profileMap.get(file.path) ?? null;
 
 				if (currentProfile !== previousProfile) {
