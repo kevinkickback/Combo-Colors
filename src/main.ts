@@ -167,24 +167,6 @@ export default class comboColors extends Plugin {
 		this.addSettingTab(new settingsTab(this.app, this));
 	}
 
-	// Re-render preview mode if broken icons detected
-	private async reload() {
-		const leaves = this.app.workspace
-			.getLeavesOfType("markdown")
-			.filter((leaf) => {
-				const view = leaf.view;
-				return (
-					view instanceof MarkdownView &&
-					view.getMode() === "preview" &&
-					/:[A-Za-z]*:/.test(view.containerEl.innerText || "")
-				);
-			});
-
-		for (const leaf of leaves) {
-			(leaf.view as MarkdownView).previewMode.rerender(true);
-		}
-	}
-
 	// Update text and icon colors
 	public updateColors(className: string, colorValue: string) {
 		const sheet = this.styleElement.sheet;
