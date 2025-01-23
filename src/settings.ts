@@ -236,52 +236,11 @@ export class settingsTab extends PluginSettingTab {
 		}
 	}
 
-	// List of games using the profile
-	private createGamesList(containerEl: HTMLElement): void {
-		containerEl.createEl("p", {
-			cls: "gamesList",
-			text: "Games currently using this profile:",
-		});
-
-		const gamesListContainer = containerEl.createDiv({ cls: "gamesList" });
-		const gameFolders = new Set(
-			this.app.vault
-				.getFiles()
-				.filter((file) => file.extension === "md")
-				.map((note) => {
-					const frontmatter =
-						this.app.metadataCache.getFileCache(note)?.frontmatter;
-					return (
-						(frontmatter?.profile === this.plugin.settings.selectedProfile &&
-							note.parent?.path) ||
-						""
-					);
-				})
-				.filter((path) => path),
-		);
-
-		if (gameFolders.size) {
-			const sortedFolders = Array.from(gameFolders).sort();
-			for (const folder of sortedFolders) {
-				gamesListContainer.createEl("span", {
-					cls: "individual-game",
-					text: folder,
-				});
-			}
-		} else {
-			gamesListContainer.createEl("span", {
-				cls: "no-games",
-				text: "None",
-			});
-		}
-	}
-
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
 
 		this.createProfileSection(containerEl);
 		this.createColorSection(containerEl);
-		// this.createGamesList(containerEl);
 	}
 }

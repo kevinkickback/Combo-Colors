@@ -163,17 +163,6 @@ export default class comboColors extends Plugin {
 			callback: () => this.toggleNotations(),
 		});
 
-		// Detect if iconize is installed & all icons loaded
-		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-		const plugins = (this.app as any).plugins;
-		if (plugins.enabledPlugins.has("obsidian-icon-folder")) {
-			const iconiz = plugins.plugins["obsidian-icon-folder"]?.api;
-			const event = iconiz.getEventEmitter();
-			event.on("allIconsLoaded", () => {
-				this.reload();
-			});
-		}
-
 		// Add the settings tab
 		this.addSettingTab(new settingsTab(this.app, this));
 	}
