@@ -132,24 +132,43 @@ export default class comboColors extends Plugin {
 			}
 		});
 
-		// Profile change event
-		const profileMap = new Map<string, string | null>();
+		// Profile change events
+		const metadataChanged = new Map<string, string>();
+
 		this.registerEvent(
 			this.app.metadataCache.on("changed", (file) => {
 				const metadata = this.app.metadataCache.getFileCache(file);
 				if (!metadata || !metadata.frontmatter) return;
 
-				const currentProfile = metadata.frontmatter.cc_profile ?? null;
-				const previousProfile = profileMap.get(file.path) ?? null;
+				const leaves = this.app.workspace.getLeavesOfType("markdown");
+				for (const leaf of leaves) {
+					const view = leaf.view as MarkdownView;
+					if (view.getMode() === "preview" && view.file === file) {
+						view.previewMode.rerender(true);
+					} else if (view.getMode() === "source" && view.file === file) {
+						// @ts-ignore
+						metadataChanged.set(file.path, leaf.id);
+					}
+				}
+			}),
+		);
 
-				if (currentProfile !== previousProfile) {
-					profileMap.set(file.path, currentProfile);
+		this.registerEvent(
+			this.app.workspace.on("layout-change", () => {
+				const leaves = this.app.workspace.getLeavesOfType("markdown");
+				for (const leaf of leaves) {
+					const view = leaf.view as MarkdownView;
+					const filePath = view.file?.path;
 
-					const leaves = this.app.workspace.getLeavesOfType("markdown");
-					for (const leaf of leaves) {
-						const view = leaf.view as MarkdownView;
-						if (view.getMode() === "preview" && view.file === file) {
+					if (!filePath) continue;
+
+					if (view.getMode() === "preview" && metadataChanged.has(filePath)) {
+						const metadataId = metadataChanged.get(filePath);
+
+						// @ts-ignore
+						if (metadataId === leaf.id) {
 							view.previewMode.rerender(true);
+							metadataChanged.delete(filePath);
 						}
 					}
 				}
