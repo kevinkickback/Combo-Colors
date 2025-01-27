@@ -268,7 +268,7 @@ export default class comboColors extends Plugin {
 						config.type === "svg"
 							? (() => {
 									const svg = span.createSvg("svg", {
-										cls: config.cls || "default-class",
+										cls: config.class || "default-class",
 										attr: {
 											xmlns: "http://www.w3.org/2000/svg",
 											viewBox: "0 0 100 100",
@@ -283,7 +283,7 @@ export default class comboColors extends Plugin {
 									return svg as unknown as HTMLElement;
 								})()
 							: span.createEl("img", {
-									cls: config.cls || "default-class",
+									cls: config.class || "default-class",
 									attr: {
 										src: config.source,
 										alt: config.alt,

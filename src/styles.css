@@ -24,12 +24,14 @@
 	margin-left: -0.2rem;
 }
 
+/* Hide neutral motion icon */
 .hidden {
 	display: none;
 }
 
+/* Add margin when no image is directly before it */
 .motionIcon[alt="QCB"]:not(.motionIcon + .motionIcon) {
-	margin-left: 0.1rem; /* Add margin when no image is directly before it */
+	margin-left: 0.1rem;
 }
 
 /* Shrink gap between double motions*/
@@ -145,51 +147,9 @@ button.combo:active {
 	cursor: pointer;
 }
 
-/* gameList message */
-.gamesList {
-	color: var(--text-muted);
-	font-size: var(--font-ui-small);
-	text-align: center;
-}
-
-/* individual game */
-.individual-game {
-	color: var(--text-accent);
-	display: inline-block;
-	word-break: break-all;
-	white-space: pre;
-}
-
-/* game seperator */
-.individual-game::after {
-	color: white;
-	content: "  |  ";
-}
-
-/* hide seperator if last game in list */
-.individual-game:last-of-type::after {
-	content: "";
-}
-
-/* no games message */
-.no-games {
-	color: var(--text-accent);
-	text-align: center;
-}
-
 /* mobile adjustments */
 @media screen and (max-width: 500px) {
 	.setting-item:is(:has(+ .setting-item-description-custom)) {
 		padding-bottom: 1rem !important;
-	}
-	.individual-game {
-		display: block;
-		word-break: break-all;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-	.individual-game::after {
-		content: "";
 	}
 }
