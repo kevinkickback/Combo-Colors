@@ -1,5 +1,4 @@
-import { PluginSettingTab, Setting, Notice } from "obsidian";
-
+import { type App, PluginSettingTab, Setting, Notice } from "obsidian";
 import { resetModal } from "./modal";
 import type comboColors from "./main";
 
@@ -123,6 +122,11 @@ export const DEFAULT_SETTINGS: { [key: string]: string } = {
 
 export class settingsTab extends PluginSettingTab {
 	plugin: comboColors;
+
+	constructor(app: App, plugin: comboColors) {
+		super(app, plugin);
+		this.plugin = plugin;
+	}
 
 	// Custom profile selection option
 	private createProfileSection(containerEl: HTMLElement): void {
