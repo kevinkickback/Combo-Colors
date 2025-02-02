@@ -1,12 +1,7 @@
-import {
-	type App,
-	PluginSettingTab,
-	Setting,
-	Notice,
-	type Plugin,
-} from "obsidian";
+import { PluginSettingTab, Setting, Notice } from "obsidian";
 
 import { resetModal } from "./modal";
+import type comboColors from "./main";
 
 export interface Settings {
 	selectedProfile: string;
@@ -127,28 +122,12 @@ export const DEFAULT_SETTINGS: { [key: string]: string } = {
 };
 
 export class settingsTab extends PluginSettingTab {
-	plugin: Plugin & {
-		settings: Settings;
-		saveSettings: () => Promise<void>;
-		updateColors: (className: string, colorValue: string) => void;
-	};
-
-	constructor(
-		app: App,
-		plugin: Plugin & {
-			settings: Settings;
-			saveSettings: () => Promise<void>;
-			updateColors: (className: string, colorValue: string) => void;
-		},
-	) {
-		super(app, plugin);
-		this.plugin = plugin;
-	}
+	plugin: comboColors;
 
 	// Custom profile selection option
 	private createProfileSection(containerEl: HTMLElement): void {
 		new Setting(containerEl)
-			.setName("Notation Profile")
+			.setName("Notation profile")
 			.addDropdown((dropdown) => {
 				for (const [key, value] of Object.entries(inputMap)) {
 					dropdown.addOption(key, value.name);
@@ -183,24 +162,20 @@ export class settingsTab extends PluginSettingTab {
 				),
 			);
 
-		// Description and copy functionality
-		const desc = containerEl.createEl("p", {
-			cls: "setting-item-description-custom",
-		});
-		const profileText = `profile: ${this.plugin.settings.selectedProfile}`;
-
+		const desc = document.createDocumentFragment();
+		desc.append("To use this profile, add ");
 		const span = desc.createEl("span", {
-			text: profileText,
+			text: `profile: ${this.plugin.settings.selectedProfile}`,
 			cls: "hlt-interaction",
 		});
-
-		desc.prepend("To use this profile, add ");
-		desc.append(" to the file's frontmatter");
-
-		span.onclick = () => {
-			navigator.clipboard.writeText(profileText);
-			new Notice("Copied to clipboard");
+		span.onclick = async () => {
+			await navigator.clipboard.writeText(
+				`profile: ${this.plugin.settings.selectedProfile}`,
+			);
+			new Notice("Copied to clipboard!");
 		};
+		desc.append(" to the file's frontmatter");
+		new Setting(containerEl).setDesc(desc);
 	}
 
 	// Color picker and reset button

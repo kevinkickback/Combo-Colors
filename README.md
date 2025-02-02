@@ -27,5 +27,42 @@
 **2.** Select the desired notation profile<br>
 **3.** Customize using the color picker
 
+## Notation Guide
+
+| Traditional | Numpad | Mixed |
+|----------|---------|---------|
+| `cr.A > st.B > qcf.C` | `2A > 5B > 236C` | `cr.A > 2B > qcf.C` |
+
+| Notation | Meaning |
+|----------|---------|
+| `>` | Proceed from the previous move to the following move |
+| `\|>` / `(Land)` | Indicate that the player must land at that point in the sequence |
+| `,` | Link the previous move into the following move |
+| `~` | Cancel the previous special into a follow-up |
+| `dl.` | Delay the following move |
+| `(whiff)` | The move must whiff (not hit) |
+| `cl.` | Close |
+| `f.` | Far |
+| `j.` | Jumping/Aerial |
+| `dj.` | Double Jump |
+| `sj.` | Super Jump |
+| `jc.` | Jump Cancel |
+| `sjc.` | Super Jump Cancel |
+| `dd.` / `22` | Double Down |
+| `back dash` / `44` | Back Dash |
+| `dash` / `66` | Forward Dash |
+| `CH` | Counter Hit |
+| `[X]` | Hold input |
+| `(sequence) xN` | Repeat sequence N amount of times |
+| `(N)` | Hit N of a move or move must deal N amount of hits |
+| `qcf.` / `236` | Quarter Circle Forward |
+| `qcb.` / `214` | Quarter Circle Back |
+| `dp.` / `623` | Dragon Punch |
+| `rdp.` / `421` | Reverse Dragon Punch |
+| `hcf.` / `41236` | Half Circle Forward |
+| `hcb.` / `63214` | Half Circle Back |
+| `2qcf.` / `236236` | Double Quarter Circle Forward |
+| `2qcb.` / `214214` | Double Quarter Circle Back |
+
 ## NOTE:
-This plugin was originally developed for personal use. Features such as adding or modifying profiles were not implemented, as I never needed them. Given my current schedule, it's unlikely I will work on these features in the future. However, if anyone is interested in building them, please feel free to do so—I’d be happy to commit the changes. Also, if you're looking for a much more comprehensive notation icon plugin please check out <a href="https://github.com/Loac/obsidian-fight-note">Obsidian Fight Note</a>.
+Combo Colors is intended to be used with reading view. Live preview is not supported.
