@@ -31,7 +31,7 @@
 
 | Traditional | Numpad | Mixed |
 |----------|---------|---------|
-| `cr.A > st.B > qcf.C` | `2A > 5B > 236C` | `cr.A > 2B > qcf.C` |
+| `cr.A , st.B , qcf.C` | `2A > 5B > 236C` | `cr.A , 2B > qcf.C` |
 
 | Notation | Meaning |
 |----------|---------|
