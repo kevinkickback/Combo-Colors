@@ -164,22 +164,25 @@ export class settingsTab extends PluginSettingTab {
 						new Notice("Default colors restored");
 					}).open(),
 				),
+			)
+			.setDesc(
+				(() => {
+					const descEl = createFragment();
+					descEl.append("To use this profile, add ");
+					const span = descEl.createEl("span", {
+						text: `profile: ${this.plugin.settings.selectedProfile}`,
+						cls: "hlt-interaction",
+					});
+					span.onclick = async () => {
+						await navigator.clipboard.writeText(
+							`profile: ${this.plugin.settings.selectedProfile}`,
+						);
+						new Notice("Copied to clipboard!");
+					};
+					descEl.append(" to the file's frontmatter");
+					return descEl;
+				})(),
 			);
-
-		const desc = document.createDocumentFragment();
-		desc.append("To use this profile, add ");
-		const span = desc.createEl("span", {
-			text: `profile: ${this.plugin.settings.selectedProfile}`,
-			cls: "hlt-interaction",
-		});
-		span.onclick = async () => {
-			await navigator.clipboard.writeText(
-				`profile: ${this.plugin.settings.selectedProfile}`,
-			);
-			new Notice("Copied to clipboard!");
-		};
-		desc.append(" to the file's frontmatter");
-		new Setting(containerEl).setDesc(desc);
 	}
 
 	// Color picker and reset button
