@@ -197,6 +197,9 @@ export class settingsTab extends PluginSettingTab {
 						new DeleteProfileModal(
 							this.app,
 							this.plugin.settings.selectedProfile,
+							this.plugin.settings.profiles[
+								this.plugin.settings.selectedProfile
+							].name,
 							async () => {
 								const profileId = this.plugin.settings.selectedProfile;
 								delete this.plugin.settings.profiles[profileId];
@@ -279,55 +282,49 @@ export class settingsTab extends PluginSettingTab {
 		// Add "Add Input" button for custom profiles
 		if (!(profile in inputMap)) {
 			new Setting(containerEl).addButton((button) =>
-				button
-					.setButtonText("Edit Inputs")
-					.setCta()
-					.onClick(() => {
-						const existingInputs = Object.entries(profileData.desc).map(
-							([name, description]) => ({
-								name,
-								description,
-								// Use the current color as the starting value in the modal
-								color: profileData.colors[name] || "#000000",
-							}),
-						);
+				button.setButtonText("Edit inputs").onClick(() => {
+					const existingInputs = Object.entries(profileData.desc).map(
+						([name, description]) => ({
+							name,
+							description,
+							// Use the current color as the starting value in the modal
+							color: profileData.colors[name] || "#000000",
+						}),
+					);
 
-						new InputsModal(
-							this.app,
-							async (inputs) => {
-								// Store the current colors before clearing
-								const previousColors = { ...profileData.colors };
+					new InputsModal(
+						this.app,
+						async (inputs) => {
+							// Store the current colors before clearing
+							const previousColors = { ...profileData.colors };
 
-								// Clear existing inputs
-								profileData.desc = {};
-								profileData.colors = {};
+							// Clear existing inputs
+							profileData.desc = {};
+							profileData.colors = {};
 
-								// Add new/updated inputs
-								for (const input of inputs) {
-									profileData.desc[input.name] = input.description;
-									// If this is an existing input and the color hasn't changed,
-									// preserve the current color instead of making the modal color the new default
-									if (previousColors[input.name] === input.color) {
-										profileData.colors[input.name] = previousColors[input.name];
-									} else {
-										// If it's a new input or the color was changed in the modal,
-										// use the modal's color as both the current and default color
-										profileData.colors[input.name] = input.color;
-										// Store the default color
-										if (!profileData.defaultColors) {
-											profileData.defaultColors = {};
-										}
-										profileData.defaultColors[input.name] = input.color;
+							// Add new/updated inputs
+							for (const input of inputs) {
+								profileData.desc[input.name] = input.description;
+								// If this is an existing input and the color hasn't changed,
+								// preserve the current color instead of making the modal color the new default
+								if (previousColors[input.name] === input.color) {
+									profileData.colors[input.name] = previousColors[input.name];
+								} else {
+									profileData.colors[input.name] = input.color;
+									if (!profileData.defaultColors) {
+										profileData.defaultColors = {};
 									}
+									profileData.defaultColors[input.name] = input.color;
 								}
-								await this.plugin.saveSettings();
-								this.plugin.updateColorsForProfile(profile);
-								this.display();
-								new Notice("Profile inputs updated!");
-							},
-							existingInputs,
-						).open();
-					}),
+							}
+
+							await this.plugin.saveSettings();
+							this.display();
+						},
+						profile,
+						existingInputs,
+					).open();
+				}),
 			);
 		}
 	}

@@ -1,18 +1,9 @@
-import type { Settings, CustomProfile } from "./settings";
+import type { CustomProfile } from "./settings";
 
 // NOTE: the convertTextToImages method struggles to correctly display some of the more complex SVGs (motion inputs).
 // 		 They have been encoded as base64 strings and are displayed with image tags instead.
 
-export const imageMap = (): Map<
-	RegExp,
-	{
-		source: string;
-		class: string;
-		alt: string;
-		type: "svg" | "img";
-		repeat?: number;
-	}
-> =>
+export const motionMap = () =>
 	new Map<
 		RegExp,
 		{
@@ -77,7 +68,7 @@ export const imageMap = (): Map<
 			/\bhcb\.|\b63214(?![\d\.])/g, // Half Circle Back
 			{
 				source:
-					"data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgMTg0IDE4NCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiBjbGFzcz0ibm90YXRpb25Nb3Rpb25JY29ucyI+CiAgPGcgdHJhbnNmb3JtPSJtYXRyaXgoLTEgMCAwIDEgMzgzLjgyNSAtMzI3LjQ3NikiPgogICAgPHBhdGggZD0iTTI0NC42ODIgNDI3LjAzdi0xNWwtMzIuOTE1LjAwMnY0LjUwNmE3OC4xODkgNzguMTg5IDAgMDAyLjcxIDIzLjc0OGMxMi44OSA0OC45NDYgNzAuMzA0IDc1LjY4OCAxMTcuMzQ2IDQ4LjUzYTgwLjAwMiA4MC4wMDIgMCAwMDQwLjAwMi02OS4yODJ2LS4wMDItLjA0NGgxMmwtMTkuOTY2LTI1LTIwLjAzNSAyNWgxM3YuMDQ0YzAgMzUuMDktMjYuNjQgNjAuOTUtNTcuNSA2NC42NDJsLS4wMDIuMDAzYTY0LjE2OCA2NC4xNjggMCAwMS03LjQ1NS40NTN2LS4xaC0uMDQ0Yy01Ljk4IDAtMTEuNjk0LS43NzMtMTcuMDc1LTIuMjEtNS4yMi0xLjQ0Ni0xMC4zOTUtMy41OTItMTUuNDI1LTYuNDk2YTY0Ljk0NCA2NC45NDQgMCAwMS0yNS4wNzktMjYuMTMyIDY0Ljk2NCA2NC45NjQgMCAwMS02Ljk4Ni0yMi42NjF6IiBmaWxsPSJ3aGl0ZSIvPgogICAgPGNpcmNsZSBjeD0iLTI5MS44MjUiIGN5PSItNDE5LjQ5OSIgcj0iNTAiIHRyYW5zZm9ybT0icm90YXRlKDE4MCkiIGZpbGw9InJlZCIvPgogIDwvZz4KPC9zdmc+",
+					"data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgMTg0IDE4NCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiBjbGFzcz0ibm90YXRpb25Nb3Rpb25JY29ucyI+CiAgPGcgdHJhbnNmb3JtPSJtYXRyaXgoLTEgMCAwIDEgMzgzLjgyNSAtMzI3LjQ3NikiPgogICAgPHBhdGggZD0iTTI0NC42ODIgNDI3LjAzdi0xNWwtMzIuOTE1LjAwMnY0LjUwNmE3OC4xODkgNzguMTg5IDAgMDAyLjcxIDIzLjc0OGMxMi44OSA0OC45NDYgNzAuMzA0IDc1LjY4OCAxMTcuMzQ2IDQ4LjUzYTgwLjAwMiA4MC4wMDIgMCAwMDQwLjAwMi02OS4yODJ2LS4wMDItLjA0NGgxMmt4MTkuOTY2LTI1LTIwLjAzNSAyNWgxM3YuMDQ0YzAgMzUuMDktMjYuNjQgNjAuOTUtNTcuNSA2NC42NDJsLS4wMDIuMDAzYTY0LjE2OCA2NC4xNjggMCAwMS03LjQ1NS40NTN2LS4xaC0uMDQ0Yy01Ljk4IDAtMTEuNjk0LS43NzMtMTcuMDc1LTIuMjEtNS4yMi0xLjQ0Ni0xMC4zOTUtMy41OTItMTUuNDI1LTYuNDk2YTY0Ljk0NCA2NC45NDQgMCAwMS0yNS4wNzktMjYuMTMyIDY0Ljk2NCA2NC45NjQgMCAwMS02Ljk4Ni0yMi42NjF6IiBmaWxsPSJ3aGl0ZSIvPgogICAgPGNpcmNsZSBjeD0iLTI5MS44MjUiIGN5PSItNDE5LjQ5OSIgcj0iNTAiIHRyYW5zZm9ybT0icm90YXRlKDE4MCkiIGZpbGw9InJlZCIvPgogIDwvZz4KPC9zdmc+",
 				class: "motionIcon",
 				alt: "HCB",
 				type: "img",
@@ -150,7 +141,7 @@ export const imageMap = (): Map<
 			},
 		],
 		[
-			/\bdb\.|\b1(?![\d\.\)a-z])/g, // Down Back
+			/\bdb\.|\b1(?![\d\.\)a-z]|x\d+)/g, // Down Back
 			{
 				source:
 					"data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgMTg0IDE4NCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiBjbGFzcz0ibm90YXRpb25Nb3Rpb25JY29ucyI+CiAgPGcgdHJhbnNmb3JtPSJtYXRyaXgoLTEgMCAwIDEgMzgzLjgyNSAtMzI3LjQ3NikiPgogICAgPGNpcmNsZSBjeD0iLTI5MS44MjUiIGN5PSItNDE5LjQ5OSIgcj0iNTAiIHRyYW5zZm9ybT0icm90YXRlKDE4MCkiIGZpbGw9InJlZCIvPgogICAgPHBhdGggZD0iTTI4Ni41MDUgNDI0Ljc2M2w0Ny4zOTIgNDcuMzkzLTguODM5IDguODM4IDMxLjgyIDMuNTM2LTMuNTM1LTMxLjgyLTguODQgOC44MzktNDcuMzkyLTQ3LjM5My0xMC42MDYgMTAuNjA3eiIgZmlsbD0id2hpdGUiLz4KICA8L2c+Cjwvc3ZnPgo=",
@@ -160,7 +151,7 @@ export const imageMap = (): Map<
 			},
 		],
 		[
-			/\bcr\.|\b2(?![\d\.\)a-z])/g, // Crouch
+			/\bcr\.|\b2(?![\d\.\)a-z]|x\d+)/g, // Crouch
 			{
 				source:
 					"data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgMTg0IDE4NCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiBjbGFzcz0ibm90YXRpb25Nb3Rpb25JY29ucyI+CiAgPGcgdHJhbnNmb3JtPSJtYXRyaXgoLTEgMCAwIDEgMzgzLjgyNSAtMzI3LjQ3NikiPgogICAgPGNpcmNsZSBjeD0iLTI5MS44MjUiIGN5PSItNDE5LjQ5OSIgcj0iNTAiIHRyYW5zZm9ybT0icm90YXRlKDE4MCkiIGZpbGw9InJlZCIvPgogICAgPHBhdGggZD0iTTI4NC4zMjQgNDE5LjQ1M3Y2Ny4wMjNoLTEyLjVsMjAgMjUgMjAtMjVoLTEyLjV2LTY3LjAyM2gtMTV6IiBmaWxsPSJ3aGl0ZSIvPgogIDwvZz4KPC9zdmc+Cg==",
@@ -180,7 +171,7 @@ export const imageMap = (): Map<
 			},
 		],
 		[
-			/\bb\.|\b4(?![\d\.\)a-z])/g, // Back
+			/\bb\.|\b4(?![\d\.\)a-z]|x\d+)/g, // Back
 			{
 				source:
 					"data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgMTg0IDE4NCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiBjbGFzcz0ibm90YXRpb25Nb3Rpb25JY29ucyI+CiAgPGcgdHJhbnNmb3JtPSJtYXRyaXgoLTEgMCAwIDEgMzgzLjgyNSAtMzI3LjQ3NikiPgogICAgPGNpcmNsZSBjeD0iLTI5MS44MjUiIGN5PSItNDE5LjQ5OSIgcj0iNTAiIHRyYW5zZm9ybT0icm90YXRlKDE4MCkiIGZpbGw9InJlZCIvPgogICAgPHBhdGggZD0iTTI5MS44MDEgNDI2Ljk3Nmg2Ny4wMjN2MTIuNWwyNS0yMC0yNS0yMHYxMi41aC02Ny4wMjN2MTV6IiBmaWxsPSJ3aGl0ZSIvPgogIDwvZz4KPC9zdmc+",
@@ -190,11 +181,11 @@ export const imageMap = (): Map<
 			},
 		],
 		[
-			/\bst\.|\b5(?![\d\.\)a-z])/g, // Neutral
+			/\bst\.|\b5(?![\d\.\)a-z]|x\d+)/g, // Neutral
 			{ source: "", class: "hidden", alt: "", type: "img" },
 		],
 		[
-			/\bf\.|\b6(?![\d\.\)a-z])/g, // Forward
+			/\bf\.|\b6(?![\d\.\)a-z]|x\d+)/g, // Forward
 			{
 				source:
 					"data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgMTg0IDE4NCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiBjbGFzcz0ibm90YXRpb25Nb3Rpb25JY29ucyI+CiAgPGcgdHJhbnNmb3JtPSJtYXRyaXgoLTEgMCAwIDEgMzgzLjgyNSAtMzI3LjQ3NikiPgogICAgPGNpcmNsZSBjeD0iLTI5MS44MjUiIGN5PSItNDE5LjQ5OSIgcj0iNTAiIHRyYW5zZm9ybT0icm90YXRlKDE4MCkiIGZpbGw9InJlZCIvPgogICAgPHBhdGggZD0iTTI5MS44NDggNDExLjk3NmgtNjcuMDIzdi0xMi41bC0yNSAyMCAyNSAyMHYtMTIuNWg2Ny4wMjN2LTE1eiIgZmlsbD0id2hpdGUiLz4KICA8L2c+Cjwvc3ZnPg==",
@@ -204,7 +195,7 @@ export const imageMap = (): Map<
 			},
 		],
 		[
-			/\bub\.|\b7(?![\d\.\)a-z])/g, // Up Back
+			/\bub\.|\b7(?![\d\.\)a-z]|x\d+)/g, // Up Back
 			{
 				source:
 					"data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgMTg0IDE4NCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiBjbGFzcz0ibm90YXRpb25Nb3Rpb25JY29ucyI+CiAgPGcgdHJhbnNmb3JtPSJtYXRyaXgoLTEgMCAwIDEgMzgzLjgyNSAtMzI3LjQ3NikiPgogICAgPGNpcmNsZSBjeD0iLTI5MS44MjUiIGN5PSItNDE5LjQ5OSIgcj0iNTAiIHRyYW5zZm9ybT0icm90YXRlKDE4MCkiIGZpbGw9InJlZCIvPgogICAgPHBhdGggZD0iTTI5Ny4xMTEgNDI0Ljc5Nmw0Ny4zOTItNDcuMzkzIDguODQgOC44NCAzLjUzNS0zMS44Mi0zMS44MiAzLjUzNSA4LjgzOSA4LjgzOS00Ny4zOTMgNDcuMzkzIDEwLjYwNyAxMC42MDd6IiBmaWxsPSJ3aGl0ZSIvPgogIDwvZz4KPC9zdmc+",
@@ -214,7 +205,7 @@ export const imageMap = (): Map<
 			},
 		],
 		[
-			/\bu\.|\b8(?![\d\.\)a-z])/g, // Jump
+			/\bu\.|\b8(?![\d\.\)a-z]|x\d+)/g, // Jump
 			{
 				source:
 					"data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgMTg0IDE4NCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiBjbGFzcz0ibm90YXRpb25Nb3Rpb25JY29ucyI+CiAgPGcgdHJhbnNmb3JtPSJtYXRyaXgoLTEgMCAwIDEgMzgzLjgyNSAtMzI3LjQ3NikiPgogICAgPGNpcmNsZSBjeD0iLTI5MS44MjUiIGN5PSItNDE5LjQ5OSIgcj0iNTAiIHRyYW5zZm9ybT0icm90YXRlKDE4MCkiIGZpbGw9InJlZCIvPgogICAgPHBhdGggZD0iTTI5OS4zMjQgNDE5LjV2LTY3LjAyNGgxMi41bC0yMC0yNS0yMCAyNWgxMi41VjQxOS41aDE1eiIgZmlsbD0id2hpdGUiLz4KICA8L2c+Cjwvc3ZnPg==",
@@ -224,7 +215,7 @@ export const imageMap = (): Map<
 			},
 		],
 		[
-			/\buf\.|\b9(?![\d\.\)a-z])/g, // Up Forward
+			/\buf\.|\b9(?![\d\.\)a-z]|x\d+)/g, // Up Forward
 			{
 				source:
 					"data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgMTg0IDE4NCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiBjbGFzcz0ibm90YXRpb25Nb3Rpb25JY29ucyI+CiAgPGcgdHJhbnNmb3JtPSJtYXRyaXgoLTEgMCAwIDEgMzgzLjgyNSAtMzI3LjQ3NikiPgogICAgPGNpcmNsZSBjeD0iLTI5MS44MjUiIGN5PSItNDE5LjQ5OSIgcj0iNTAiIHRyYW5zZm9ybT0icm90YXRlKDE4MCkiIGZpbGw9InJlZCIvPgogICAgPHBhdGggZD0iTTI5Ny4xNDQgNDE0LjE5bC00Ny4zOTMtNDcuMzkzIDguODQtOC44MzktMzEuODItMy41MzUgMy41MzUgMzEuODIgOC44MzktOC44NCA0Ny4zOTIgNDcuMzkzIDEwLjYwNy0xMC42MDd6IiBmaWxsPSJ3aGl0ZSIvPgogIDwvZz4KPC9zdmc+",
@@ -233,345 +224,67 @@ export const imageMap = (): Map<
 				type: "img",
 			},
 		],
-		[
-			/\bA(?!:)\b/g, // A Button
-			{
-				source: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="notationButtonIcons">
-					<path fill="#DE1616" d="M91.667 50A41.667 41.667 0 0 1 50 91.667 41.667 41.667 0 0 1 8.333 50a41.667 41.667 0 0 1 83.333 0"/>
-					<text x="50%" y="45%" text-anchor="middle" fill="#FFF" font-family="Arial Black, Arial, sans-serif" font-size="80" font-weight="bold" dy=".35em" stroke="#000" stroke-width="2.85">
-						A
-					</text>
-				</svg>`,
-				class: "buttonIcon",
-				alt: "A",
-				type: "svg",
-			},
-		],
-		[
-			/\bB(?!:)\b/g, // B Button
-			{
-				source: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="notationButtonIcons">
-					<path fill="#1F8CCC" d="M91.667 50A41.667 41.667 0 0 1 50 91.667 41.667 41.667 0 0 1 8.333 50a41.667 41.667 0 0 1 83.333 0"/>
-					<text x="53%" y="50%" text-anchor="middle" fill="#FFF" font-family="Arial Black, Arial, sans-serif" font-size="80" font-weight="bold" dy=".35em" stroke="#000" stroke-width="2.85">
-						B
-					</text>
-				</svg>`,
-				class: "buttonIcon",
-				alt: "B",
-				type: "svg",
-			},
-		],
-		[
-			/\bC(?!:)\b/g, // C Button
-			{
-				source: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="notationButtonIcons">
-					<path fill="#009E4E" d="M91.667 50A41.667 41.667 0 0 1 50 91.667 41.667 41.667 0 0 1 8.333 50a41.667 41.667 0 0 1 83.333 0"/>
-					<text x="50%" y="50%" text-anchor="middle" fill="#FFF" font-family="Arial Black, Arial, sans-serif" font-size="80" font-weight="bold" dy=".35em" stroke="#000" stroke-width="2.85">
-						C
-					</text>
-				</svg>`,
-				class: "buttonIcon",
-				alt: "C",
-				type: "svg",
-			},
-		],
-		[
-			/\bD(?!:)\b/g, // D Button
-			{
-				source: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="notationButtonIcons">
-					<path fill="#E8982C" d="M91.667 50A41.667 41.667 0 0 1 50 91.667 41.667 41.667 0 0 1 8.333 50a41.667 41.667 0 0 1 83.333 0"/>
-					<text x="53%" y="50%" text-anchor="middle" fill="#FFF" font-family="Arial Black, Arial, sans-serif" font-size="80" font-weight="bold" dy=".35em" stroke="#000" stroke-width="2.85">
-						D
-					</text>
-				</svg>`,
-				class: "buttonIcon",
-				alt: "D",
-				type: "svg",
-			},
-		],
-		[
-			/\bE(?!:)\b/g, // E Button
-			{
-				source: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="notationButtonIcons">
-					<path fill="#892CE8" d="M91.667 50A41.667 41.667 0 0 1 50 91.667 41.667 41.667 0 0 1 8.333 50a41.667 41.667 0 0 1 83.333 0"/>
-					<text x="50%" y="45%" text-anchor="middle" fill="#FFF" font-family="Arial Black, Arial, sans-serif" font-size="80" font-weight="bold" dy=".35em" stroke="#000" stroke-width="2.85">
-						E
-					</text>
-				</svg>`,
-				class: "buttonIcon",
-				alt: "E",
-				type: "svg",
-			},
-		],
-		[
-			/\bK(?!:)\b/g, // K Button
-			{
-				source: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="notationButtonIcons">
-					<path fill="#1F8CCC" d="M91.667 50A41.667 41.667 0 0 1 50 91.667 41.667 41.667 0 0 1 8.333 50a41.667 41.667 0 0 1 83.333 0"/>
-					<text x="50%" y="50%" text-anchor="middle" fill="#FFF" font-family="Arial Black, Arial, sans-serif" font-size="75" font-weight="bold" dy=".35em" stroke="#000" stroke-width="2.85">
-						K
-					</text>
-				</svg>`,
-				class: "buttonIcon",
-				alt: "K",
-				type: "svg",
-			},
-		],
-		[
-			/\bP(?!:)\b/g, // P Button
-			{
-				source: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="notationButtonIcons">
-					<path fill="#FF87D1" d="M91.667 50A41.667 41.667 0 0 1 50 91.667 41.667 41.667 0 0 1 8.333 50a41.667 41.667 0 0 1 83.333 0"/>
-					<text x="50%" y="50%" text-anchor="middle" fill="#FFF" font-family="Arial Black, Arial, sans-serif" font-size="80" font-weight="bold" dy=".35em" stroke="#000" stroke-width="2.85">
-						P
-					</text>
-				</svg>`,
-				class: "buttonIcon",
-				alt: "P",
-				type: "svg",
-			},
-		],
-		[
-			/\bS(?!:)\b/g, // S Button
-			{
-				source: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="notationButtonIcons">
-					<path fill="#009E4E" d="M91.667 50A41.667 41.667 0 0 1 50 91.667 41.667 41.667 0 0 1 8.333 50a41.667 41.667 0 0 1 83.333 0"/>
-					<text x="53%" y="50%" text-anchor="middle" fill="#FFF" font-family="Arial Black, Arial, sans-serif" font-size="80" font-weight="bold" dy=".35em" stroke="#000" stroke-width="2.85">
-						S
-					</text>
-				</svg>`,
-				class: "buttonIcon",
-				alt: "S",
-				type: "svg",
-			},
-		],
-		[
-			/\bHS(?!:)\b/g, // HS Button
-			{
-				source: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="notationButtonIcons">
-					<path fill="#DE1616" d="M91.667 50A41.667 41.667 0 0 1 50 91.667 41.667 41.667 0 0 1 8.333 50a41.667 41.667 0 0 1 83.333 0"/>
-					<text x="50%" y="50%" text-anchor="middle" fill="#FFF" font-family="Arial Black, Arial, sans-serif" font-size="60" font-weight="bold" dy=".35em" stroke="#000" stroke-width="2.85">
-						HS
-					</text>
-				</svg>`,
-				class: "buttonIcon",
-				alt: "HS",
-				type: "svg",
-			},
-		],
-		[
-			/\bMS(?!:)\b/g, // MS Button
-			{
-				source: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="notationButtonIcons">
-					<path fill="#E8982C" d="M91.667 50A41.667 41.667 0 0 1 50 91.667 41.667 41.667 0 0 1 8.333 50a41.667 41.667 0 0 1 83.333 0"/>
-					<text x="50%" y="50%" text-anchor="middle" fill="#FFF" font-family="Arial Black, Arial, sans-serif" font-size="60" font-weight="bold" dy=".35em" stroke="#000" stroke-width="2.85">
-						MS
-					</text>
-				</svg>`,
-				class: "buttonIcon",
-				alt: "MS",
-				type: "svg",
-			},
-		],
-		[
-			/\bL(?!:)\b/g, // L Button
-			{
-				source: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="notationButtonIcons">
-					<path fill="#1F8CCC" d="M91.667 50A41.667 41.667 0 0 1 50 91.667 41.667 41.667 0 0 1 8.333 50a41.667 41.667 0 0 1 83.333 0"/>
-					<text x="50%" y="50%" text-anchor="middle" fill="#FFF" font-family="Arial Black, Arial, sans-serif" font-size="80" font-weight="bold" dy=".35em" stroke="#000" stroke-width="2.85">
-						L
-					</text>
-				</svg>`,
-				class: "buttonIcon",
-				alt: "L",
-				type: "svg",
-			},
-		],
-		[
-			/\bM(?!:)\b/g, // M Button
-			{
-				source: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="notationButtonIcons">
-					<path fill="#E8982C" d="M91.667 50A41.667 41.667 0 0 1 50 91.667 41.667 41.667 0 0 1 8.333 50a41.667 41.667 0 0 1 83.333 0"/>
-					<text x="50%" y="50%" text-anchor="middle" fill="#FFF" font-family="Arial Black, Arial, sans-serif" font-size="75" font-weight="bold" dy=".35em" stroke="#000" stroke-width="2.85">
-						M
-					</text>
-				</svg>`,
-				class: "buttonIcon",
-				alt: "M",
-				type: "svg",
-			},
-		],
-		[
-			/\bH(?!:)\b/g, // H Button
-			{
-				source: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="notationButtonIcons">
-					<path fill="#DE1616" d="M91.667 50A41.667 41.667 0 0 1 50 91.667 41.667 41.667 0 0 1 8.333 50a41.667 41.667 0 0 1 83.333 0"/>
-					<text x="50%" y="48%" text-anchor="middle" fill="#FFF" font-family="Arial Black, Arial, sans-serif" font-size="75" font-weight="bold" dy=".35em" stroke="#000" stroke-width="2.85">
-						H
-					</text>
-				</svg>`,
-				class: "buttonIcon",
-				alt: "H",
-				type: "svg",
-			},
-		],
-		[
-			/\bX(?!:)\b/g, // X Button
-			{
-				source: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="notationButtonIcons">
-					<path fill="#1F8CCC" d="M91.667 50A41.667 41.667 0 0 1 50 91.667 41.667 41.667 0 0 1 8.333 50a41.667 41.667 0 0 1 83.333 0"/>
-					<text x="50%" y="50%" text-anchor="middle" fill="#FFF" font-family="Arial Black, Arial, sans-serif" font-size="80" font-weight="bold" dy=".35em" stroke="#000" stroke-width="2.85">
-						X
-					</text>
-				</svg>`,
-				class: "buttonIcon",
-				alt: "X",
-				type: "svg",
-			},
-		],
-		[
-			/\bY(?!:)\b/g, // Y Button
-			{
-				source: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="notationButtonIcons">
-					<path fill="#E8982C" d="M91.667 50A41.667 41.667 0 0 1 50 91.667 41.667 41.667 0 0 1 8.333 50a41.667 41.667 0 0 1 83.333 0"/>
-					<text x="50%" y="55%" text-anchor="middle" fill="#FFF" font-family="Arial Black, Arial, sans-serif" font-size="80" font-weight="bold" dy=".35em" stroke="#000" stroke-width="2.85">
-						Y
-					</text>
-				</svg>`,
-				class: "buttonIcon",
-				alt: "Y",
-				type: "svg",
-			},
-		],
-		[
-			/\bU(?!:)\b/g, // U Button
-			{
-				source: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="notationButtonIcons">
-					<path fill="#FF87D1" d="M91.667 50A41.667 41.667 0 0 1 50 91.667 41.667 41.667 0 0 1 8.333 50a41.667 41.667 0 0 1 83.333 0"/>
-					<text x="50%" y="55%" text-anchor="middle" fill="#FFF" font-family="Arial Black, Arial, sans-serif" font-size="80" font-weight="bold" dy=".35em" stroke="#000" stroke-width="2.85">
-						U
-					</text>
-				</svg>`,
-				class: "buttonIcon",
-				alt: "U",
-				type: "svg",
-			},
-		],
-		[
-			/\bAA1(?!:)\b/g, // A1 Button
-			{
-				source: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="notationButtonIcons">
-					<path fill="#892CE8" d="M91.667 50A41.667 41.667 0 0 1 50 91.667 41.667 41.667 0 0 1 8.333 50a41.667 41.667 0 0 1 83.333 0"/>
-					<text x="50%" y="50%" text-anchor="middle" fill="#FFF" font-family="Arial Black, Arial, sans-serif" font-size="80" font-weight="bold" dy=".35em" stroke="#000" stroke-width="2.85">
-						A1
-					</text>
-				</svg>`,
-				class: "buttonIcon",
-				alt: "A1",
-				type: "svg",
-			},
-		],
-		[
-			/\bA2(?!:)\b/g, // A2 Button
-			{
-				source: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="notationButtonIcons">
-					<path fill="#892CE8" d="M91.667 50A41.667 41.667 0 0 1 50 91.667 41.667 41.667 0 0 1 8.333 50a41.667 41.667 0 0 1 83.333 0"/>
-					<text x="50%" y="55%" text-anchor="middle" fill="#FFF" font-family="Arial Black, Arial, sans-serif" font-size="80" font-weight="bold" dy=".35em" stroke="#000" stroke-width="2.85">
-						A2
-					</text>
-				</svg>`,
-				class: "buttonIcon",
-				alt: "A2",
-				type: "svg",
-			},
-		],
-		[
-			/\bLP(?!:)\b/g, // LP Button
-			{
-				source: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="notationButtonIcons">
-					<path fill="#1F8CCC" d="M91.667 50A41.667 41.667 0 0 1 50 91.667 41.667 41.667 0 0 1 8.333 50a41.667 41.667 0 0 1 83.333 0"/>
-					<text x="50%" y="50%" text-anchor="middle" fill="#FFF" font-family="Arial Black, Arial, sans-serif" font-size="65" font-weight="bold" dy=".35em" stroke="#000" stroke-width="2.85">
-						LP
-					</text>
-				</svg>`,
-				class: "buttonIcon",
-				alt: "LP",
-				type: "svg",
-			},
-		],
-		[
-			/\bMP(?!:)\b/g, // MP Button
-			{
-				source: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="notationButtonIcons">
-					<path fill="#E8982C" d="M91.667 50A41.667 41.667 0 0 1 50 91.667 41.667 41.667 0 0 1 8.333 50a41.667 41.667 0 0 1 83.333 0"/>
-					<text x="50%" y="55%" text-anchor="middle" fill="#FFF" font-family="Arial Black, Arial, sans-serif" font-size="60" font-weight="bold" dy=".35em" stroke="#000" stroke-width="2.85">
-						MP
-					</text>
-				</svg>`,
-				class: "buttonIcon",
-				alt: "MP",
-				type: "svg",
-			},
-		],
-		[
-			/\bHP(?!:)\b/g, // HP Button
-			{
-				source: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="notationButtonIcons">
-					<path fill="#DE1616" d="M91.667 50A41.667 41.667 0 0 1 50 91.667 41.667 41.667 0 0 1 8.333 50a41.667 41.667 0 0 1 83.333 0"/>
-					<text x="50%" y="55%" text-anchor="middle" fill="#FFF" font-family="Arial Black, Arial, sans-serif" font-size="60" font-weight="bold" dy=".35em" stroke="#000" stroke-width="2.85">
-						HP
-					</text>
-				</svg>`,
-				class: "buttonIcon",
-				alt: "HP",
-				type: "svg",
-			},
-		],
-		[
-			/\bLK(?!:)\b/g, // LK Button
-			{
-				source: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="notationButtonIcons">
-					<path fill="#1F8CCC" d="M91.667 50A41.667 41.667 0 0 1 50 91.667 41.667 41.667 0 0 1 8.333 50a41.667 41.667 0 0 1 83.333 0"/>
-					<text x="50%" y="50%" text-anchor="middle" fill="#FFF" font-family="Arial Black, Arial, sans-serif" font-size="65" font-weight="bold" dy=".35em" stroke="#000" stroke-width="2.85">
-						LK
-					</text>
-				</svg>`,
-				class: "buttonIcon",
-				alt: "LK",
-				type: "svg",
-			},
-		],
-		[
-			/\bMK(?!:)\b/g, // MK Button
-			{
-				source: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="notationButtonIcons">
-					<path fill="#E8982C" d="M91.667 50A41.667 41.667 0 0 1 50 91.667 41.667 41.667 0 0 1 8.333 50a41.667 41.667 0 0 1 83.333 0"/>
-					<text x="50%" y="55%" text-anchor="middle" fill="#FFF" font-family="Arial Black, Arial, sans-serif" font-size="60" font-weight="bold" dy=".35em" stroke="#000" stroke-width="2.85">
-						MK
-					</text>
-				</svg>`,
-				class: "buttonIcon",
-				alt: "MK",
-				type: "svg",
-			},
-		],
-		[
-			/\bHK(?!:)\b/g, // HK Button
-			{
-				source: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="notationButtonIcons">
-					<path fill="#DE1616" d="M91.667 50A41.667 41.667 0 0 1 50 91.667 41.667 41.667 0 0 1 8.333 50a41.667 41.667 0 0 1 83.333 0"/>
-					<text x="50%" y="55%" text-anchor="middle" fill="#FFF" font-family="Arial Black, Arial, sans-serif" font-size="60" font-weight="bold" dy=".35em" stroke="#000" stroke-width="2.85">
-						HK
-					</text>
-				</svg>`,
-				class: "buttonIcon",
-				alt: "HK",
-				type: "svg",
-			},
-		],
 	]);
 
-export function regPatterns(profile: CustomProfile): Map<RegExp, string> {
+export const generateButtonMap = (
+	profile: CustomProfile,
+): Map<
+	RegExp,
+	{
+		source: string;
+		class: string;
+		alt: string;
+		type: "svg" | "img";
+	}
+> => {
+	const buttonMap = new Map();
+
+	// Function to calculate font size based on input length
+	const calculateFontSize = (input: string): number => {
+		const length = input.length;
+		if (length <= 1) return 80; // Single character (largest)
+		if (length === 2) return 60; // Two characters (reduced by 5px)
+		if (length === 3) return 50; // Three characters
+		return Math.max(30, 80 - length * 10); // Scale down for longer strings, minimum 30
+	};
+
+	for (const [input, color] of Object.entries(profile.colors)) {
+		const fontSize = calculateFontSize(input);
+
+		buttonMap.set(new RegExp(`\\b${input}(?!:)\\b`, "g"), {
+			source: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="notationButtonIcons">
+					<path fill="${color}" d="M91.667 50A41.667 41.667 0 0 1 50 91.667 41.667 41.667 0 0 1 8.333 50a41.667 41.667 0 0 1 83.333 0"/>
+					<text x="50%" y="50%" text-anchor="middle" fill="#FFF" font-family="Arial Black, Arial, sans-serif" font-size="${fontSize}" font-weight="bold" dy=".35em" stroke="#000" stroke-width="2.85">
+						${input}
+					</text>
+				</svg>`,
+			class: "buttonIcon",
+			alt: input,
+			type: "svg",
+		});
+	}
+
+	return buttonMap;
+};
+
+export const imageMap = (
+	profile: CustomProfile,
+): Map<
+	RegExp,
+	{
+		source: string;
+		class: string;
+		alt: string;
+		type: "svg" | "img";
+		repeat?: number;
+	}
+> => {
+	// Combine motion inputs and button mappings
+	const map = new Map([...motionMap(), ...generateButtonMap(profile)]);
+	return map;
+};
+
+export function colorPatterns(profile: CustomProfile): Map<RegExp, string> {
 	const patterns = new Map<RegExp, string>();
 
 	// Add patterns for each input in the profile

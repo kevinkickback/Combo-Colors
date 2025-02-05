@@ -14,6 +14,7 @@
    - `asw` - Arc System Works style (Guilty Gear, BlazBlue, etc.)
    - `alt` - Modern Alternative style (DNF Duel, Granblue, etc.)
    - `trd` - Traditional style (Street Fighter, Marvel vs Capcom Infinite, etc.)
+   - `cstm` - Custom profile (see below)
    - **EXAMPLE:** `cc_profile: asw`<br><br>
 
 **2.** Wrap your combo notations with `=:` and `:=` delimiters.<br>
@@ -23,6 +24,14 @@
 
 ## Customization
 
+### Custom Profiles
+**1.** Go to Settings > Community Plugins > Combo Colors<br>
+**2.** Click the "+" button next to the profile dropdown<br>
+**3.** Enter a display name (e.g. "My Custom Profile") and a unique identifier (e.g. "cstm")<br>
+**4.** Add inputs with the "Edit inputs" button<br>
+**5.** Use your custom profile by adding `cc_profile: cstm` to your frontmatter (replace "cstm" with your chosen ID)
+
+### Change colors
 **1.** Go to Settings > Community Plugins > Combo Colors<br>
 **2.** Select the desired notation profile<br>
 **3.** Customize using the color picker

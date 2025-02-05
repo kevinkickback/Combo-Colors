@@ -4,7 +4,7 @@ import {
 	Plugin,
 } from "obsidian";
 import { type Settings, settingsTab, DEFAULT_SETTINGS } from "./settings";
-import { imageMap, regPatterns } from "./patterns";
+import { imageMap, colorPatterns } from "./patterns";
 
 export default class comboColors extends Plugin {
 	styleElement: HTMLStyleElement;
@@ -64,7 +64,6 @@ export default class comboColors extends Plugin {
 					this.settings.selectedProfile;
 				const profile = this.settings.profiles[profileId];
 
-				// Process all notation elements
 				for (const notation of element.querySelectorAll(".notation")) {
 					const textMode = notation.textContent || "";
 					(notation as HTMLElement).dataset.textMode = textMode;
@@ -75,7 +74,7 @@ export default class comboColors extends Plugin {
 						continue;
 					}
 
-					const patterns = regPatterns(profile);
+					const patterns = colorPatterns(profile);
 
 					for (const childNode of Array.from(notation.childNodes)) {
 						if (childNode.nodeType !== Node.TEXT_NODE) continue;
@@ -90,12 +89,10 @@ export default class comboColors extends Plugin {
 
 						for (const [pattern, input] of patterns.entries()) {
 							pattern.lastIndex = 0;
-							let match: RegExpExecArray | null = null;
-
+							let match: RegExpExecArray | null;
 							while (true) {
 								match = pattern.exec(textContent);
-								if (match === null) break;
-
+								if (!match) break;
 								matchRanges.push({
 									start: match.index,
 									end: match.index + match[0].length,
@@ -105,10 +102,8 @@ export default class comboColors extends Plugin {
 							}
 						}
 
-						// Sort matches by start position
 						matchRanges.sort((a, b) => a.start - b.start);
 
-						// Create fragment with colored spans
 						const fragment = createFragment();
 						let lastIndex = 0;
 
@@ -302,12 +297,28 @@ export default class comboColors extends Plugin {
 		span.empty();
 		let pos = 0;
 
+		// Get the profile ID and profile from the span's parent notation element
+		const notation = span.closest(".notation");
+		const profileId = notation
+			?.querySelector("[data-profile-id]")
+			?.getAttribute("data-profile-id");
+		const profile = profileId ? this.settings.profiles[profileId] : null;
+
+		if (!profile) return;
+
 		while (pos < text.length) {
 			const fragment = createFragment();
 			let matched = false;
 
-			for (const [regex, config] of imageMap()) {
-				const match = regex.exec(text.slice(pos));
+			// Check if we're at a position after 'x' to prevent matching motion inputs
+			const isAfterX = pos > 0 && text[pos - 1].toLowerCase() === "x";
+
+			for (const [regex, config] of imageMap(profile)) {
+				regex.lastIndex = 0;
+				// Skip motion input patterns if we're after an 'x'
+				if (isAfterX && config.type === "img") continue;
+
+				const match = regex.exec(text.substring(pos));
 				if (!match || match.index !== 0) continue;
 
 				const count = config.repeat || 1;
@@ -328,7 +339,7 @@ export default class comboColors extends Plugin {
 										"image/svg+xml",
 									);
 									svg.append(...Array.from(svgDoc.documentElement.childNodes));
-									return svg as unknown as HTMLElement;
+									return svg;
 								})()
 							: span.createEl("img", {
 									cls: config.class || "default-class",
