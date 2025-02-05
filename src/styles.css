@@ -153,3 +153,49 @@ button.combo:active {
 		padding-bottom: 1rem !important;
 	}
 }
+
+.custom-profile-row {
+	padding: 8px;
+	margin-bottom: 16px;
+	border-radius: 4px;
+	background-color: var(--background-secondary);
+}
+
+/* Input modal specific styles */
+.inputs-container {
+	border-radius: 4px;
+}
+
+/* Add Input button styling */
+.inputs-container + .setting-item {
+	margin-bottom: 16px;
+	padding: 0;
+	border: none;
+}
+
+.modal-button-container {
+	margin-top: 16px;
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+}
+
+.modal-button-container .setting-item {
+	border: none;
+	padding: 0;
+	margin: 0;
+}
+
+/* Ensure settings in custom profile rows are properly spaced */
+.custom-profile-row .setting-item {
+	padding: 0.35rem 0;
+	border: none;
+}
+
+/* Make disabled delete button more apparent */
+.setting-item button.mod-warning[disabled] {
+	opacity: 0.3;
+	cursor: not-allowed;
+	background-color: var(--background-modifier-error);
+	color: var(--text-on-accent);
+}

@@ -1,13 +1,31 @@
 import { type App, PluginSettingTab, Setting, Notice } from "obsidian";
-import { resetModal } from "./modal";
+import { CustomProfileModal, DeleteProfileModal, InputsModal } from "./modal";
 import type comboColors from "./main";
+
+export interface CustomProfile {
+	name: string;
+	desc: { [key: string]: string };
+	colors: Record<string, string>;
+	defaultColors?: Record<string, string>;
+}
 
 export interface Settings {
 	selectedProfile: string;
-	[key: string]: string;
+	profiles: {
+		[key: string]: CustomProfile;
+	};
+	[key: string]: string | { [key: string]: CustomProfile };
 }
 
-export const inputMap = {
+export type InputMapType = {
+	[key: string]: {
+		name: string;
+		desc: Record<string, string>;
+		colors: Record<string, string>;
+	};
+};
+
+export const inputMap: InputMapType = {
 	asw: {
 		name: "ASW Standard",
 		desc: {
@@ -107,17 +125,11 @@ export const inputMap = {
 	},
 };
 
-export const DEFAULT_SETTINGS: { [key: string]: string } = {
+export const DEFAULT_SETTINGS: Settings = {
 	selectedProfile: "asw",
-	...Object.entries(inputMap).reduce(
-		(acc, [profileKey, profile]) => {
-			for (const [colorKey, colorValue] of Object.entries(profile.colors)) {
-				acc[`${profileKey}_${colorKey}`] = colorValue;
-			}
-			return acc;
-		},
-		{} as { [key: string]: string },
-	),
+	profiles: {
+		...inputMap,
+	},
 };
 
 export class settingsTab extends PluginSettingTab {
@@ -128,13 +140,22 @@ export class settingsTab extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
-	// Custom profile selection option
 	private createProfileSection(containerEl: HTMLElement): void {
-		new Setting(containerEl)
+		const profile = this.plugin.settings.selectedProfile;
+		const profileData = this.plugin.settings.profiles[profile];
+		if (!profileData) {
+			new Notice("Profile not found!");
+			return;
+		}
+
+		const profileSetting = new Setting(containerEl)
 			.setName("Notation profile")
 			.addDropdown((dropdown) => {
-				for (const [key, value] of Object.entries(inputMap)) {
-					dropdown.addOption(key, value.name);
+				// Add all profiles
+				for (const [key, profile] of Object.entries(
+					this.plugin.settings.profiles,
+				)) {
+					dropdown.addOption(key, profile.name);
 				}
 
 				dropdown
@@ -146,75 +167,168 @@ export class settingsTab extends PluginSettingTab {
 					});
 			})
 			.addButton((button) =>
-				button.setIcon("reset").onClick(() =>
-					new resetModal(this.app, async () => {
-						const profile = this.plugin.settings.selectedProfile;
-						for (const [key] of Object.entries(
-							inputMap[profile as keyof typeof inputMap].colors,
-						)) {
-							const settingKey = `${profile}_${key}`;
-							this.plugin.settings[settingKey] = DEFAULT_SETTINGS[settingKey];
-							this.plugin.updateColors(
-								settingKey,
-								DEFAULT_SETTINGS[settingKey],
-							);
+				button.setIcon("plus").onClick(() => {
+					new CustomProfileModal(this.app, async (profileId, profileName) => {
+						// Check if profile ID already exists
+						if (profileId in this.plugin.settings.profiles) {
+							new Notice("Profile ID already exists!");
+							return;
 						}
+
+						const newProfile: CustomProfile = {
+							name: profileName,
+							desc: {},
+							colors: {},
+						};
+
+						this.plugin.settings.profiles[profileId] = newProfile;
+						this.plugin.settings.selectedProfile = profileId;
 						await this.plugin.saveSettings();
 						this.display();
-						new Notice("Default colors restored");
-					}).open(),
-				),
+						new Notice("Custom profile created!");
+					}).open();
+				}),
 			)
-			.setDesc(
-				(() => {
-					const descEl = createFragment();
-					descEl.append("To use this profile, add ");
-					const span = descEl.createEl("span", {
-						text: `profile: ${this.plugin.settings.selectedProfile}`,
-						cls: "hlt-interaction",
+			.addButton((button) => {
+				button
+					.setIcon("trash")
+					.setWarning()
+					.onClick(() => {
+						new DeleteProfileModal(
+							this.app,
+							this.plugin.settings.selectedProfile,
+							async () => {
+								const profileId = this.plugin.settings.selectedProfile;
+								delete this.plugin.settings.profiles[profileId];
+								this.plugin.settings.selectedProfile = "asw"; // Reset to default profile
+								await this.plugin.saveSettings();
+								this.display();
+								new Notice("Custom profile deleted!");
+							},
+						).open();
 					});
-					span.onclick = async () => {
-						await navigator.clipboard.writeText(
-							`profile: ${this.plugin.settings.selectedProfile}`,
-						);
-						new Notice("Copied to clipboard!");
-					};
-					descEl.append(" to the file's frontmatter");
-					return descEl;
-				})(),
+
+				// Disable delete button for default profiles
+				if (profile in inputMap) {
+					button.setDisabled(true);
+				}
+				return button;
+			});
+
+		const descFragment = createFragment();
+		descFragment.append("To use this profile, add ");
+		const span = descFragment.createEl("span", {
+			text: `cc_profile: ${this.plugin.settings.selectedProfile}`,
+			cls: "hlt-interaction",
+		});
+		span.onclick = async () => {
+			await navigator.clipboard.writeText(
+				`cc_profile: ${this.plugin.settings.selectedProfile}`,
 			);
+			new Notice("Copied to clipboard!");
+		};
+		descFragment.append(" to the file's frontmatter");
+
+		profileSetting.setDesc(descFragment);
 	}
 
-	// Color picker and reset button
 	private createColorSection(containerEl: HTMLElement): void {
-		const profile = this.plugin.settings
-			.selectedProfile as keyof typeof inputMap;
+		const profile = this.plugin.settings.selectedProfile;
+		const profileData = this.plugin.settings.profiles[profile];
+		if (!profileData) {
+			new Notice("Profile not found!");
+			return;
+		}
 
 		const resetSingleColor = async (input: string) => {
-			const settingKey = `${profile}_${input}`;
-			this.plugin.settings[settingKey] = DEFAULT_SETTINGS[settingKey];
-			this.plugin.updateColors(settingKey, DEFAULT_SETTINGS[settingKey]);
+			const defaultProfile = inputMap[profile];
+			if (defaultProfile?.colors?.[input]) {
+				// For built-in profiles, use the default color from inputMap
+				profileData.colors[input] = defaultProfile.colors[input];
+			} else if (
+				profileData.desc[input] &&
+				profileData.defaultColors?.[input]
+			) {
+				// For custom profiles, use the stored default color
+				profileData.colors[input] = profileData.defaultColors[input];
+			}
 			await this.plugin.saveSettings();
+			this.plugin.updateColorsForProfile(profile);
 			this.display();
 		};
 
-		for (const [input, desc] of Object.entries(inputMap[profile].desc)) {
+		for (const [input, desc] of Object.entries(profileData.desc)) {
 			new Setting(containerEl)
 				.setName(input)
-				.setDesc(desc as string)
+				.setDesc(desc)
 				.addText((text) => {
 					text.inputEl.type = "color";
 					text
-						.setValue(this.plugin.settings[`${profile}_${input}`])
+						.setValue(profileData.colors[input] || "#000000")
 						.onChange(async (value) => {
-							this.plugin.settings[`${profile}_${input}`] = value;
+							profileData.colors[input] = value;
 							await this.plugin.saveSettings();
-							this.plugin.updateColors(`${profile}_${input}`, value);
+							this.plugin.updateColorsForProfile(profile);
 						});
 				})
 				.addButton((button) =>
 					button.setIcon("reset").onClick(() => resetSingleColor(input)),
 				);
+		}
+
+		// Add "Add Input" button for custom profiles
+		if (!(profile in inputMap)) {
+			new Setting(containerEl).addButton((button) =>
+				button
+					.setButtonText("Edit Inputs")
+					.setCta()
+					.onClick(() => {
+						const existingInputs = Object.entries(profileData.desc).map(
+							([name, description]) => ({
+								name,
+								description,
+								// Use the current color as the starting value in the modal
+								color: profileData.colors[name] || "#000000",
+							}),
+						);
+
+						new InputsModal(
+							this.app,
+							async (inputs) => {
+								// Store the current colors before clearing
+								const previousColors = { ...profileData.colors };
+
+								// Clear existing inputs
+								profileData.desc = {};
+								profileData.colors = {};
+
+								// Add new/updated inputs
+								for (const input of inputs) {
+									profileData.desc[input.name] = input.description;
+									// If this is an existing input and the color hasn't changed,
+									// preserve the current color instead of making the modal color the new default
+									if (previousColors[input.name] === input.color) {
+										profileData.colors[input.name] = previousColors[input.name];
+									} else {
+										// If it's a new input or the color was changed in the modal,
+										// use the modal's color as both the current and default color
+										profileData.colors[input.name] = input.color;
+										// Store the default color
+										if (!profileData.defaultColors) {
+											profileData.defaultColors = {};
+										}
+										profileData.defaultColors[input.name] = input.color;
+									}
+								}
+								await this.plugin.saveSettings();
+								this.plugin.updateColorsForProfile(profile);
+								this.display();
+								new Notice("Profile inputs updated!");
+							},
+							existingInputs,
+						).open();
+					}),
+			);
 		}
 	}
 

@@ -2,113 +2,137 @@ import {
 	type MarkdownPostProcessorContext,
 	MarkdownView,
 	Plugin,
-	TFile,
 } from "obsidian";
 import { type Settings, settingsTab, DEFAULT_SETTINGS } from "./settings";
 import { imageMap, regPatterns } from "./patterns";
 
 export default class comboColors extends Plugin {
+	styleElement: HTMLStyleElement;
 	settings: Settings;
-	private styleElement: HTMLStyleElement;
 
 	async onload() {
 		// Create dynamic stylesheet & initialize color rules
-		this.styleElement = document.createElement("style");
+		this.styleElement = createEl("style");
 		this.styleElement.id = "dynamic-colors";
 		document.head.appendChild(this.styleElement);
 
 		await this.loadSettings();
 
-		const sheet = this.styleElement.sheet;
-		if (sheet) {
-			for (const [className, colorValue] of Object.entries(this.settings)) {
-				sheet.insertRule(`.${className} { color: ${colorValue} !important; }`);
-			}
-		}
+		// Initialize colors for the default profile
+		this.updateColorsForProfile(this.settings.selectedProfile);
 
 		// Syntax processor (must be before color processor)
 		this.registerMarkdownPostProcessor((element: HTMLElement) => {
 			const processNode = (node: Node) => {
 				if (node.nodeType === Node.TEXT_NODE) {
-					const modifiedText = (node.textContent || "").replace(
-						/=:(.+?):=/g,
-						"$1",
-					);
-					if (node.textContent !== modifiedText) {
-						(node as ChildNode).replaceWith(
-							element.createSpan({ cls: "notation", text: modifiedText }),
+					const text = node.textContent || "";
+					const regex = /=:(.+?):=/g;
+					let match = regex.exec(text);
+
+					if (!match) return;
+
+					const fragment = createFragment();
+					let lastIndex = 0;
+
+					while (match) {
+						fragment.appendText(text.slice(lastIndex, match.index));
+						fragment.append(
+							element.createSpan({ cls: "notation", text: match[1] }),
 						);
+						lastIndex = regex.lastIndex;
+						match = regex.exec(text);
 					}
+
+					fragment.appendText(text.slice(lastIndex));
+					(node as ChildNode).replaceWith(fragment);
 				} else if (node.nodeType === Node.ELEMENT_NODE) {
-					for (const child of node.childNodes) {
-						processNode(child);
-					}
+					Array.from(node.childNodes).forEach(processNode);
 				}
 			};
 
-			for (const child of element.childNodes) {
-				processNode(child);
-			}
+			Array.from(element.childNodes).forEach(processNode);
 		});
 
 		// Color processor
 		this.registerMarkdownPostProcessor(
 			(element: HTMLElement, context: MarkdownPostProcessorContext) => {
-				const file = this.app.vault.getAbstractFileByPath(context.sourcePath);
-				if (!(file instanceof TFile)) return;
+				const file = context.sourcePath;
+				const frontmatter = this.app.metadataCache.getCache(file)?.frontmatter;
 
-				const profile: keyof ReturnType<typeof regPatterns> =
-					this.app.metadataCache.getFileCache(file)?.frontmatter?.cc_profile;
-				const inputs = regPatterns(this.settings)[profile];
+				const profileId =
+					(frontmatter?.cc_profile as string | undefined) ||
+					this.settings.selectedProfile;
+				const profile = this.settings.profiles[profileId];
 
+				// Process all notation elements
 				for (const notation of element.querySelectorAll(".notation")) {
 					const textMode = notation.textContent || "";
 					(notation as HTMLElement).dataset.textMode = textMode;
 
-					if (!inputs) {
+					if (!profile) {
 						notation.textContent = "[ No notation profile in frontmatter ]";
-						notation.addClass("warning");
+						notation.classList.add("warning");
 						continue;
 					}
 
-					const fragment = createFragment();
-					let lastIndex = 0;
+					const patterns = regPatterns(profile);
 
 					for (const childNode of Array.from(notation.childNodes)) {
 						if (childNode.nodeType !== Node.TEXT_NODE) continue;
 
 						const textContent = childNode.textContent || "";
-						const matchRanges = [];
+						const matchRanges: Array<{
+							start: number;
+							end: number;
+							input: string;
+							text: string;
+						}> = [];
 
-						for (const [regex, settingName] of inputs) {
-							let match: RegExpExecArray | null = regex.exec(textContent);
-							while (match !== null) {
+						for (const [pattern, input] of patterns.entries()) {
+							pattern.lastIndex = 0;
+							let match: RegExpExecArray | null = null;
+
+							while (true) {
+								match = pattern.exec(textContent);
+								if (match === null) break;
+
 								matchRanges.push({
 									start: match.index,
 									end: match.index + match[0].length,
-									settingName,
+									input,
 									text: match[0],
 								});
-								match = regex.exec(textContent);
 							}
 						}
 
+						// Sort matches by start position
 						matchRanges.sort((a, b) => a.start - b.start);
 
-						for (const { start, end, settingName, text } of matchRanges) {
-							if (lastIndex < start)
-								fragment.append(textContent.slice(lastIndex, start));
+						// Create fragment with colored spans
+						const fragment = createFragment();
+						let lastIndex = 0;
 
-							const span = createSpan({ text });
-							span.classList.add(settingName);
-							this.updateColors(settingName, this.settings[settingName]);
+						for (const { start, end, input, text } of matchRanges) {
+							if (lastIndex < start) {
+								fragment.appendText(textContent.slice(lastIndex, start));
+							}
+
+							const span = element.createSpan({
+								cls: `cc-${profileId}-${input}`,
+								text,
+								attr: {
+									"data-color-input": input,
+									"data-profile-id": profileId,
+									style: `color: ${profile.colors[input]}`,
+								},
+							});
 							fragment.append(span);
 
 							lastIndex = end;
 						}
 
 						if (lastIndex < textContent.length) {
-							fragment.append(textContent.slice(lastIndex));
+							fragment.appendText(textContent.slice(lastIndex));
 						}
 
 						childNode.replaceWith(fragment);
@@ -122,7 +146,7 @@ export default class comboColors extends Plugin {
 			const codeblocks = element.querySelectorAll<HTMLElement>("code");
 			for (const codeblock of codeblocks) {
 				if (codeblock.innerText.trim() === "comboButton") {
-					const comboButton = createEl("button", {
+					const comboButton = element.createEl("button", {
 						text: "Icon Notation",
 						cls: "combo",
 					});
@@ -186,43 +210,48 @@ export default class comboColors extends Plugin {
 		this.addSettingTab(new settingsTab(this.app, this));
 	}
 
-	// Update text and icon colors
-	public updateColors(className: string, colorValue: string) {
+	updateColorsForProfile(profileId: string) {
+		const profile = this.settings.profiles[profileId];
+		if (!profile) return;
+
 		const sheet = this.styleElement.sheet;
 		if (!sheet) return;
 
-		for (let i = 0; i < sheet.cssRules.length; i++) {
-			const rule = sheet.cssRules[i];
-			if (
-				rule instanceof CSSStyleRule &&
-				rule.selectorText === `.${className}`
-			) {
-				sheet.deleteRule(i);
-				sheet.insertRule(`.${className} { color: ${colorValue} !important; }`);
-				this.updateSvgFill(className);
-				return;
-			}
+		// Clear existing rules
+		while (sheet.cssRules.length > 0) {
+			sheet.deleteRule(0);
 		}
 
-		sheet.insertRule(`.${className} { color: ${colorValue} !important; }`);
-		this.updateSvgFill(className);
-	}
+		// Add new rules for each input in the profile
+		for (const [input, color] of Object.entries(profile.colors)) {
+			const className = `cc-${profileId}-${input}`;
+			sheet.insertRule(`.${className} { color: ${color} !important; }`);
+			// Single rule for SVG colors - path/circle get color, text stays white
+			sheet.insertRule(
+				`.${className} svg path, .${className} svg circle { fill: ${color} !important; }`,
+			);
+			sheet.insertRule(`.${className} svg text { fill: white !important; }`);
+		}
 
-	private updateSvgFill = (className: string) => {
-		const newColor = this.settings[className];
-		if (!newColor) return;
-
-		for (const span of document.querySelectorAll(`span.${className}`)) {
-			const svg = span.querySelector("svg");
-			if (svg) {
-				const textElement = svg.querySelector("text");
-				if (textElement?.textContent?.trim()) {
-					const pathElement = svg.querySelector("path");
-					if (pathElement) pathElement.setAttribute("fill", newColor);
+		// Update any existing SVGs in the document
+		const elements = this.app.workspace.containerEl.querySelectorAll(
+			`[data-profile-id="${profileId}"]`,
+		);
+		for (const element of elements) {
+			const input = element.getAttribute("data-color-input");
+			if (input && profile.colors[input]) {
+				const color = profile.colors[input];
+				const svgElements = element.querySelectorAll("svg path, svg circle");
+				for (const el of svgElements) {
+					(el as SVGElement).style.fill = color;
+				}
+				const textElements = element.querySelectorAll("svg text");
+				for (const el of textElements) {
+					(el as SVGElement).style.fill = "white";
 				}
 			}
 		}
-	};
+	}
 
 	// Toggle between text and icon notations
 	private toggleNotations = () => {
@@ -274,7 +303,7 @@ export default class comboColors extends Plugin {
 		let pos = 0;
 
 		while (pos < text.length) {
-			const fragment = document.createDocumentFragment();
+			const fragment = createFragment();
 			let matched = false;
 
 			for (const [regex, config] of imageMap()) {
@@ -309,7 +338,7 @@ export default class comboColors extends Plugin {
 									},
 								});
 
-					if (element) fragment.appendChild(element);
+					if (element) fragment.append(element);
 				}
 				pos += match[0].length;
 				matched = true;
@@ -317,14 +346,10 @@ export default class comboColors extends Plugin {
 			}
 
 			if (!matched) {
-				fragment.appendChild(document.createTextNode(text[pos]));
+				fragment.appendText(text[pos]);
 				pos++;
 			}
-			span.appendChild(fragment);
-		}
-
-		if (span.className) {
-			this.updateSvgFill(span.className);
+			span.append(fragment);
 		}
 	}
 

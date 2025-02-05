@@ -1,4 +1,4 @@
-import type { Settings } from "./settings";
+import type { Settings, CustomProfile } from "./settings";
 
 // NOTE: the convertTextToImages method struggles to correctly display some of the more complex SVGs (motion inputs).
 // 		 They have been encoded as base64 strings and are displayed with image tags instead.
@@ -207,7 +207,7 @@ export const imageMap = (): Map<
 			/\bub\.|\b7(?![\d\.\)a-z])/g, // Up Back
 			{
 				source:
-					"data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgMTg0IDE4NCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiBjbGFzcz0ibm90YXRpb25Nb3Rpb25JY29ucyI+CiAgPGcgdHJhbnNmb3JtPSJtYXRyaXgoLTEgMCAwIDEgMzgzLjgyNSAtMzI3LjQ3NikiPgogICAgPGNpcmNsZSBjeD0iLTI5MS44MjUiIGN5PSItNDE5LjQ5OSIgcj0iNTAiIHRyYW5zZm9ybT0icm90YXRlKDE4MCkiIGZpbGw9InJlZCIvPgogICAgPHBhdGggZD0iTTI5Ny4xMTEgNDI0Ljc5Nmw0Ny4zOTItNDcuMzkzIDguODQgOC44NCAzLjUzNS0zMS44Mi0zMS44MiAzLjUzNSA4LjgzOSA4LjgzOS00Ny4zOTMgNDcuMzkyIDEwLjYwNyAxMC42MDd6IiBmaWxsPSJ3aGl0ZSIvPgogIDwvZz4KPC9zdmc+",
+					"data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgMTg0IDE4NCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiBjbGFzcz0ibm90YXRpb25Nb3Rpb25JY29ucyI+CiAgPGcgdHJhbnNmb3JtPSJtYXRyaXgoLTEgMCAwIDEgMzgzLjgyNSAtMzI3LjQ3NikiPgogICAgPGNpcmNsZSBjeD0iLTI5MS44MjUiIGN5PSItNDE5LjQ5OSIgcj0iNTAiIHRyYW5zZm9ybT0icm90YXRlKDE4MCkiIGZpbGw9InJlZCIvPgogICAgPHBhdGggZD0iTTI5Ny4xMTEgNDI0Ljc5Nmw0Ny4zOTItNDcuMzkzIDguODQgOC44NCAzLjUzNS0zMS44Mi0zMS44MiAzLjUzNSA4LjgzOSA4LjgzOS00Ny4zOTMgNDcuMzkzIDEwLjYwNyAxMC42MDd6IiBmaWxsPSJ3aGl0ZSIvPgogIDwvZz4KPC9zdmc+",
 				class: "motionIcon",
 				alt: "UpBack",
 				type: "img",
@@ -571,130 +571,19 @@ export const imageMap = (): Map<
 		],
 	]);
 
-// Color processor regex patterns
-export const regPatterns = (settings: Settings) => ({
-	asw: new Map([
-		[
-			/(?:\d*[a-z]*\.\d*|\d+[a-z]*|[+~]|(?:\b|\W))(?:\[A\]|A)(?:\(\d+\))?(?=\s|\b|$|~|,)/g,
-			"asw_A",
-		],
-		[
-			/(?:\d*[a-z]*\.\d*|\d+[a-z]*|[+~]|(?:\b|\W))(?:\[B\]|B)(?:\(\d+\))?(?=\s|\b|$|~|,)/g,
-			"asw_B",
-		],
-		[
-			/(?:\d*[a-z]*\.\d*|\d+[a-z]*|[+~]|(?:\b|\W))(?:\[C\]|C)(?:\(\d+\))?(?=\s|\b|$|~|,)/g,
-			"asw_C",
-		],
-		[
-			/(?:\d*[a-z]*\.\d*|\d+[a-z]*|[+~]|(?:\b|\W))(?:\[D\]|D)(?:\(\d+\))?(?=\s|\b|$|~|,)/g,
-			"asw_D",
-		],
-		[
-			/(?:\d*[a-z]*\.\d*|\d+[a-z]*|[+~]|(?:\b|\W))(?:\[E\]|E)(?:\(\d+\))?(?=\s|\b|$|~|,)/g,
-			"asw_E",
-		],
-		[
-			/(?:\d*[a-z]*\.\d*|\d+[a-z]*|[+~]|(?:\b|\W))(?:\[K\]|K)(?:\(\d+\))?(?=\s|\b|$|~|,)/g,
-			"asw_K",
-		],
-		[
-			/(?:\d*[a-z]*\.\d*|\d+[a-z]*|[+~]|(?:\b|\W))(?:\[P\]|P)(?:\(\d+\))?(?=\s|\b|$|~|,)/g,
-			"asw_P",
-		],
-		[
-			/(?:\d*[a-z]*\.\d*|\d+[a-z]*|[+~]|(?:\b|\W))(?:\[S\]|S)(?:\(\d+\))?(?=\s|\b|$|~|,)/g,
-			"asw_S",
-		],
-		[
-			/(?:\d*[a-z]*\.\d*|\d+[a-z]*|[+~]|(?:\b|\W))(?:\[HS\]|HS)(?:\(\d+\))?(?=\s|\b|$|~|,)/g,
-			"asw_HS",
-		],
-		[
-			/(?:\d*[a-z]*\.\d*|\d+[a-z]*|[+~]|(?:\b|\W))(?:\[MS\]|MS)(?:\(\d+\))?(?=\s|\b|$|~|,)/g,
-			"asw_MS",
-		],
-		[/\bOD\b/g, "asw_OD"],
-		[/\bRC\b/g, "asw_RC"],
-		[/\bDRC\b/g, "asw_DRC"],
-		[/\bYRC\b/g, "asw_YRC"],
-		[/\bBRC\b/g, "asw_BRC"],
-		[/\bPRC\b/g, "asw_PRC"],
-	]),
-	alt: new Map([
-		[
-			/(?:\d*[a-z]*\.\d*|\d+[a-z]*|[+~]|(?:\b|\W))(?:\[A\]|A)(?:\(\d+\))?(?=\s|\b|$|~|,)/g,
-			"alt_A",
-		],
-		[
-			/(?:\d*[a-z]*\.\d*|\d+[a-z]*|[+~]|(?:\b|\W))(?:\[B\]|B)(?:\(\d+\))?(?=\s|\b|$|~|,)/g,
-			"alt_B",
-		],
-		[
-			/(?:\d*[a-z]*\.\d*|\d+[a-z]*|[+~]|(?:\b|\W))(?:\[X\]|X)(?:\(\d+\))?(?=\s|\b|$|~|,)/g,
-			"alt_X",
-		],
-		[
-			/(?:\d*[a-z]*\.\d*|\d+[a-z]*|[+~]|(?:\b|\W))(?:\[Y\]|Y)(?:\(\d+\))?(?=\s|\b|$|~|,)/g,
-			"alt_Y",
-		],
-		[
-			/(?:\d*[a-z]*\.\d*|\d+[a-z]*|[+~]|(?:\b|\W))(?:\[L\]|L)(?:\(\d+\))?(?=\s|\b|$|~|,)/g,
-			"alt_L",
-		],
-		[
-			/(?:\d*[a-z]*\.\d*|\d+[a-z]*|[+~]|(?:\b|\W))(?:\[M\]|M)(?:\(\d+\))?(?=\s|\b|$|~|,)/g,
-			"alt_M",
-		],
-		[
-			/(?:\d*[a-z]*\.\d*|\d+[a-z]*|[+~]|(?:\b|\W))(?:\[H\]|H)(?:\(\d+\))?(?=\s|\b|$|~|,)/g,
-			"alt_H",
-		],
-		[
-			/(?:\d*[a-z]*\.\d*|\d+[a-z]*|[+~]|(?:\b|\W))(?:\[S\]|S)(?:\(\d+\))?(?=\s|\b|$|~|,)/g,
-			"alt_S",
-		],
-		[
-			/(?:\d*[a-z]*\.\d*|\d+[a-z]*|[+~]|(?:\b|\W))(?:\[U\]|U)(?:\(\d+\))?(?=\s|\b|$|~|,)/g,
-			"alt_U",
-		],
-		[/\bA1\b/g, "alt_A1"],
-		[/\bA2\b/g, "alt_A2"],
-	]),
-	trd: new Map([
-		[
-			/(?:\d*[a-z]*\.\d*|\d+[a-z]*|[+~]|(?:\b|\W))(?:\[P\]|P)(?:\(\d+\))?(?=\s|\b|$|~|,)/g,
-			"trd_P",
-		],
-		[
-			/(?:\d*[a-z]*\.\d*|\d+[a-z]*|[+~]|(?:\b|\W))(?:\[K\]|K)(?:\(\d+\))?(?=\s|\b|$|~|,)/g,
-			"trd_K",
-		],
-		[
-			/(?:\d*[a-z]*\.\d*|\d+[a-z]*|[+~]|(?:\b|\W))(?:\[LP\]|LP)(?:\(\d+\))?(?=\s|\b|$|~|,)/g,
-			"trd_LP",
-		],
-		[
-			/(?:\d*[a-z]*\.\d*|\d+[a-z]*|[+~]|(?:\b|\W))(?:\[MP\]|MP)(?:\(\d+\))?(?=\s|\b|$|~|,)/g,
-			"trd_MP",
-		],
-		[
-			/(?:\d*[a-z]*\.\d*|\d+[a-z]*|[+~]|(?:\b|\W))(?:\[HP\]|HP)(?:\(\d+\))?(?=\s|\b|$|~|,)/g,
-			"trd_HP",
-		],
-		[
-			/(?:\d*[a-z]*\.\d*|\d+[a-z]*|[+~]|(?:\b|\W))(?:\[LK\]|LK)(?:\(\d+\))?(?=\s|\b|$|~|,)/g,
-			"trd_LK",
-		],
-		[
-			/(?:\d*[a-z]*\.\d*|\d+[a-z]*|[+~]|(?:\b|\W))(?:\[MK\]|MK)(?:\(\d+\))?(?=\s|\b|$|~|,)/g,
-			"trd_MK",
-		],
-		[
-			/(?:\d*[a-z]*\.\d*|\d+[a-z]*|[+~]|(?:\b|\W))(?:\[HK\]|HK)(?:\(\d+\))?(?=\s|\b|$|~|,)/g,
-			"trd_HK",
-		],
-		[/\bDI\b/g, "trd_DI"],
-		[/\bDR\b/g, "trd_DR"],
-	]),
-});
+export function regPatterns(profile: CustomProfile): Map<RegExp, string> {
+	const patterns = new Map<RegExp, string>();
+
+	// Add patterns for each input in the profile
+	for (const input of Object.keys(profile.colors)) {
+		try {
+			const pattern = `(?:\\d*[a-z]*\\.\\d*|\\d+[a-z]*|[+~]|(?:\\b|\\W))(?:\\[${input}\\]|${input})(?:\\(\\d+\\))?(?=\\s|\\b|$|~|,)`;
+			const regex = new RegExp(pattern, "g");
+			patterns.set(regex, input);
+		} catch (e) {
+			console.error(`Error creating regex pattern for input ${input}:`, e);
+		}
+	}
+
+	return patterns;
+}
