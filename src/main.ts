@@ -118,7 +118,7 @@ export default class comboColors extends Plugin {
 							}
 							fragment.append(
 								element.createSpan({
-									cls: `cc-${profileId}-${input}`,
+									cls: `cc-${profileId}-${input} cc-profile-color`,
 									text,
 									attr: {
 										"data-color-input": input,
@@ -224,17 +224,10 @@ export default class comboColors extends Plugin {
 			}
 		}
 
-		// Add color rules for text and SVG elements
+		// Add color rules using CSS custom properties
 		for (const [input, color] of Object.entries(profile.colors)) {
 			const className = `cc-${profileId}-${input}`;
-			const rules = [
-				`.${className} { color: ${color}; }`,
-				`.${className} svg path, .${className} svg circle { fill: ${color}; }`,
-				`.${className} svg text { fill: white; }`,
-			];
-			for (const rule of rules) {
-				sheet.insertRule(rule);
-			}
+			sheet.insertRule(`.${className} { --notation-color: ${color}; }`);
 		}
 
 		// Update existing elements to use new color classes
@@ -247,7 +240,7 @@ export default class comboColors extends Plugin {
 			const input = element.getAttribute("data-color-input");
 			if (!input || !profile.colors[input]) continue;
 
-			element.classList.add(`cc-${profileId}-${input}`);
+			element.classList.add(`cc-${profileId}-${input}`, "cc-profile-color");
 		}
 	}
 
@@ -300,8 +293,7 @@ export default class comboColors extends Plugin {
 
 	private convertTextToImages(span: HTMLElement) {
 		const text = span.textContent || "";
-		span.empty();
-		let pos = 0;
+		if (!text) return;
 
 		const notation = span.closest(".notation");
 		const profileId = notation
@@ -310,19 +302,24 @@ export default class comboColors extends Plugin {
 		const profile = profileId ? this.settings.profiles[profileId] : null;
 		if (!profile) return;
 
+		span.empty();
+		const fragment = createFragment();
+		let pos = 0;
+		const motions = imageMap(profile);
+
 		while (pos < text.length) {
-			const fragment = createFragment();
 			let matched = false;
 			// Skip motion inputs after 'x' to prevent matching in combinations (e.g., 2x4)
 			const isAfterX = pos > 0 && text[pos - 1].toLowerCase() === "x";
 
-			for (const [regex, config] of imageMap(profile)) {
+			for (const [regex, config] of motions) {
 				regex.lastIndex = 0;
 				if (isAfterX && config.type === "img") continue;
 
 				const match = regex.exec(text.substring(pos));
 				if (!match || match.index !== 0) continue;
 
+				// Create the element based on type
 				const element =
 					config.type === "svg"
 						? this.createSvgElement(span, config)
@@ -336,15 +333,11 @@ export default class comboColors extends Plugin {
 
 				if (element) {
 					const count = config.repeat || 1;
-					if (count === 1) {
-						fragment.append(element);
-					} else {
-						// Create copies for repeated motions (e.g., double quarter circle)
-						for (let i = 0; i < count; i++) {
-							fragment.append(i === 0 ? element : element.cloneNode(true));
-						}
+					for (let i = 0; i < count; i++) {
+						fragment.append(i === 0 ? element : element.cloneNode(true));
 					}
 				}
+
 				pos += match[0].length;
 				matched = true;
 				break;
@@ -354,8 +347,9 @@ export default class comboColors extends Plugin {
 				fragment.appendText(text[pos]);
 				pos++;
 			}
-			span.append(fragment);
 		}
+
+		span.append(fragment);
 	}
 
 	private createSvgElement(

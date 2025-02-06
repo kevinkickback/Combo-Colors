@@ -9,6 +9,7 @@ interface MotionConfig {
 	alt: string;
 	type: "svg" | "img";
 	repeat?: number;
+	prefix?: string;
 }
 
 interface ButtonConfig {
@@ -26,23 +27,25 @@ type ColorMap = Map<RegExp, string>;
 export const motionMap = (): MotionMap =>
 	new Map([
 		[
-			/\bqcf\.|\b236(?![\d\.])/g,
+			/(?:j\.|)\bqcf\.|\b236(?![\d\.])/g,
 			{
 				source:
 					"data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgMTg0IDE4NCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiBjbGFzcz0ibm90YXRpb25Nb3Rpb25JY29ucyI+Cgk8cGF0aCBkPSJNMTU3IDkyLjA0NFY5MmgtMTNsMjAuMDM1LTI1TDE4NCA5MmgtMTJ2MC4wNDVjMCAzMS43OTctMTguNTkzIDU5LjMwMS00MC4wMDIgNjkuMjgxIC0xMy44OTcgOC4wMjMtMjguNyAxMS4zNDItNDIuOTkyIDEwLjc3NEg4NC41di0zMi45MTVoMTV2MTcuNTAxYzMwLjg2LTMuNjkgNTcuNS0yOS41NTIgNTcuNS02NC42NDJ6IiBmaWxsPSJ3aGl0ZSIvPgoJPGNpcmNsZSBjeD0iOTIiIGN5PSI5MiIgcj0iNTAiIGZpbGw9InJlZCIvPgo8L3N2Zz4=",
 				class: "motionIcon",
 				alt: "QCF",
 				type: "img",
+				prefix: "j.",
 			},
 		],
 		[
-			/\bqcb\.|\b214(?![\d\.])/g,
+			/(?:j\.|)\bqcb\.|\b214(?![\d\.])/g,
 			{
 				source:
 					"data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgMTg0IDE4NCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiBjbGFzcz0ibm90YXRpb25Nb3Rpb25JY29ucyI+CiAgPGcgdHJhbnNmb3JtPSJtYXRyaXgoLTEgMCAwIDEgMzgzLjgyNSAtMzI3LjQ3NikiPgogICAgPHBhdGggZD0iTTM1Ni44MjUgNDE5LjU2N3YtLjA0NGgtMTNsMjAuMDM1LTI1IDE5Ljk2NSAyNWgtMTJ2LjA0NWE4MCA4MCAwIDAxLTQwLjAwMiA2OS4yODFjLTEzLjg5NyA4LjAyMy0yOC43IDExLjM0Mi00Mi45OTIgMTAuNzc0aC00LjUwNnYtMzIuOTE1aDE1djE3LjUwMWMzMC44Ni0zLjY5MSA1Ny40OTktMjkuNTUyIDU3LjUtNjQuNjQyeiIgZmlsbD0id2hpdGUiLz4KICAgIDxjaXJjbGUgY3g9Ii0yOTEuODI1IiBjeT0iLTQxOS40OTkiIHI9IjUwIiB0cmFuc2Zvcm09InJvdGF0ZSgxODApIiBmaWxsPSJyZWQiLz4KICA8L2c+Cjwvc3ZnPg==",
 				class: "motionIcon",
 				alt: "QCB",
 				type: "img",
+				prefix: "j.",
 			},
 		],
 		[

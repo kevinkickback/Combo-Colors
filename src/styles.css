@@ -1,4 +1,17 @@
-/* keep notations together  */
+.cc-profile-color {
+	color: var(--notation-color);
+}
+
+.cc-profile-color svg path,
+.cc-profile-color svg circle {
+	fill: var(--notation-color);
+}
+
+.cc-profile-color svg text {
+	fill: white;
+}
+
+/* keep notations together */
 .notation {
 	white-space: normal;
 	word-break: keep-all;
@@ -34,7 +47,7 @@
 	margin-left: 0.1rem;
 }
 
-/* Shrink gap between double motions*/
+/* Shrink gap between double motions */
 img.motionIcon[alt="Up"] + .motionIcon,
 img.motionIcon[alt="Down"] + .motionIcon,
 img.motionIcon[alt="Back"] + .motionIcon {
