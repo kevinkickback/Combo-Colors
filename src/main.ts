@@ -2,229 +2,248 @@ import {
 	type MarkdownPostProcessorContext,
 	MarkdownView,
 	Plugin,
-	TFile,
+	type WorkspaceLeaf,
 } from "obsidian";
 import { type Settings, settingsTab, DEFAULT_SETTINGS } from "./settings";
-import { imageMap, regPatterns } from "./patterns";
+import { imageMap, colorPatterns } from "./patterns";
 
 export default class comboColors extends Plugin {
+	styleElement: HTMLStyleElement;
 	settings: Settings;
-	private styleElement: HTMLStyleElement;
+	// Track leaves that need rerendering after profile changes
+	private metadataChanged: Map<string, WorkspaceLeaf>;
 
 	async onload() {
-		// Create dynamic stylesheet & initialize color rules
-		this.styleElement = document.createElement("style");
-		this.styleElement.id = "dynamic-colors";
+		this.styleElement = createEl("style", { attr: { id: "dynamic-colors" } });
 		document.head.appendChild(this.styleElement);
+		this.metadataChanged = new Map();
 
 		await this.loadSettings();
 
-		const sheet = this.styleElement.sheet;
-		if (sheet) {
-			for (const [className, colorValue] of Object.entries(this.settings)) {
-				sheet.insertRule(`.${className} { color: ${colorValue} !important; }`);
-			}
+		// Generate CSS rules for all profiles to ensure frontmatter overrides work immediately
+		for (const profileId of Object.keys(this.settings.profiles)) {
+			this.updateColorsForProfile(profileId);
 		}
 
-		// Syntax processor (must be before color processor)
+		// First processor: Convert =:notation:= syntax into spans
 		this.registerMarkdownPostProcessor((element: HTMLElement) => {
 			const processNode = (node: Node) => {
-				if (node.nodeType === Node.TEXT_NODE) {
-					const modifiedText = (node.textContent || "").replace(
-						/=:(.+?):=/g,
-						"$1",
+				if (node.nodeType !== Node.TEXT_NODE) {
+					if (node.nodeType === Node.ELEMENT_NODE) {
+						for (const child of node.childNodes) processNode(child);
+					}
+					return;
+				}
+
+				const text = node.textContent || "";
+				const regex = /=:(.+?):=/g;
+				let match = regex.exec(text);
+				if (!match) return;
+
+				const fragment = createFragment();
+				let lastIndex = 0;
+
+				while (match) {
+					fragment.appendText(text.slice(lastIndex, match.index));
+					fragment.append(
+						element.createSpan({ cls: "notation", text: match[1] }),
 					);
-					if (node.textContent !== modifiedText) {
-						(node as ChildNode).replaceWith(
-							element.createSpan({ cls: "notation", text: modifiedText }),
-						);
-					}
-				} else if (node.nodeType === Node.ELEMENT_NODE) {
-					for (const child of node.childNodes) {
-						processNode(child);
-					}
+					lastIndex = regex.lastIndex;
+					match = regex.exec(text);
+				}
+
+				fragment.appendText(text.slice(lastIndex));
+				if (node.parentNode) {
+					node.parentNode.replaceChild(fragment, node);
 				}
 			};
 
-			for (const child of element.childNodes) {
-				processNode(child);
-			}
+			for (const node of element.childNodes) processNode(node);
 		});
 
-		// Color processor
+		// Second processor: Apply colors and process inputs based on profile from frontmatter
 		this.registerMarkdownPostProcessor(
 			(element: HTMLElement, context: MarkdownPostProcessorContext) => {
-				const file = this.app.vault.getAbstractFileByPath(context.sourcePath);
-				if (!(file instanceof TFile)) return;
-
-				const profile: keyof ReturnType<typeof regPatterns> =
-					this.app.metadataCache.getFileCache(file)?.frontmatter?.cc_profile;
-				const inputs = regPatterns(this.settings)[profile];
+				const file = context.sourcePath;
+				const frontmatter = this.app.metadataCache.getCache(file)?.frontmatter;
+				const frontmatterProfile = frontmatter?.cc_profile;
+				const profileId = frontmatterProfile
+					? String(frontmatterProfile).trim()
+					: null;
+				const profile = profileId ? this.settings.profiles[profileId] : null;
 
 				for (const notation of element.querySelectorAll(".notation")) {
-					const textMode = notation.textContent || "";
-					(notation as HTMLElement).dataset.textMode = textMode;
+					if (!(notation instanceof HTMLElement)) continue;
 
-					if (!inputs) {
+					const textMode = notation.textContent || "";
+					notation.dataset.textMode = textMode;
+
+					if (!profile) {
 						notation.textContent = "[ No notation profile in frontmatter ]";
-						notation.addClass("warning");
+						notation.classList.add("warning");
 						continue;
 					}
 
-					const fragment = createFragment();
-					let lastIndex = 0;
-
-					for (const childNode of Array.from(notation.childNodes)) {
+					const patterns = colorPatterns(profile);
+					for (const childNode of notation.childNodes) {
 						if (childNode.nodeType !== Node.TEXT_NODE) continue;
 
 						const textContent = childNode.textContent || "";
 						const matchRanges = [];
 
-						for (const [regex, settingName] of inputs) {
-							let match: RegExpExecArray | null = regex.exec(textContent);
+						// Collect all matches first to handle overlapping patterns correctly
+						for (const [pattern, input] of patterns.entries()) {
+							pattern.lastIndex = 0;
+							let match: RegExpExecArray | null = pattern.exec(textContent);
 							while (match !== null) {
 								matchRanges.push({
 									start: match.index,
 									end: match.index + match[0].length,
-									settingName,
+									input,
 									text: match[0],
 								});
-								match = regex.exec(textContent);
+								match = pattern.exec(textContent);
 							}
 						}
 
+						if (!matchRanges.length) continue;
+
 						matchRanges.sort((a, b) => a.start - b.start);
+						const fragment = createFragment();
+						let lastIndex = 0;
 
-						for (const { start, end, settingName, text } of matchRanges) {
-							if (lastIndex < start)
-								fragment.append(textContent.slice(lastIndex, start));
-
-							const span = createSpan({ text });
-							span.classList.add(settingName);
-							this.updateColors(settingName, this.settings[settingName]);
-							fragment.append(span);
-
+						for (const { start, end, input, text } of matchRanges) {
+							if (lastIndex < start) {
+								fragment.appendText(textContent.slice(lastIndex, start));
+							}
+							fragment.append(
+								element.createSpan({
+									cls: `cc-${profileId}-${input} cc-profile-color`,
+									text,
+									attr: {
+										"data-color-input": input,
+										"data-profile-id": profileId,
+									},
+								}),
+							);
 							lastIndex = end;
 						}
 
 						if (lastIndex < textContent.length) {
-							fragment.append(textContent.slice(lastIndex));
+							fragment.appendText(textContent.slice(lastIndex));
 						}
 
-						childNode.replaceWith(fragment);
+						if (childNode.parentNode) {
+							childNode.parentNode.replaceChild(fragment, childNode);
+						}
 					}
 				}
 			},
 		);
 
-		// Button processor
+		// Create button from 'comboButton' codeblock
 		this.registerMarkdownPostProcessor((element: HTMLElement) => {
-			const codeblocks = element.querySelectorAll<HTMLElement>("code");
-			for (const codeblock of codeblocks) {
-				if (codeblock.innerText.trim() === "comboButton") {
-					const comboButton = createEl("button", {
+			for (const codeblock of element.querySelectorAll<HTMLElement>("code")) {
+				if (
+					codeblock.innerText.trim() === "comboButton" &&
+					codeblock.parentNode
+				) {
+					const button = element.createEl("button", {
 						text: "Icon Notation",
 						cls: "combo",
 					});
-					codeblock.replaceWith(comboButton);
-					this.registerDomEvent(comboButton, "click", this.toggleNotations);
+					this.registerDomEvent(button, "click", this.toggleNotations);
+					codeblock.parentNode.replaceChild(button, codeblock);
 				}
 			}
 		});
 
-		// Profile change events
-		const metadataChanged = new Map<string, string>();
-
+		// Handle profile changes in frontmatter
 		this.registerEvent(
 			this.app.metadataCache.on("changed", (file) => {
 				const metadata = this.app.metadataCache.getFileCache(file);
-				if (!metadata || !metadata.frontmatter) return;
+				if (!metadata?.frontmatter) return;
 
-				const leaves = this.app.workspace.getLeavesOfType("markdown");
-				for (const leaf of leaves) {
-					const view = leaf.view as MarkdownView;
-					if (view.getMode() === "preview" && view.file === file) {
+				for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
+					const view = leaf.view;
+					if (!(view instanceof MarkdownView) || view.file !== file) continue;
+
+					if (view.getMode() === "preview") {
 						view.previewMode.rerender(true);
-					} else if (view.getMode() === "source" && view.file === file) {
-						// @ts-ignore
-						metadataChanged.set(file.path, leaf.id);
+					} else if (view.getMode() === "source") {
+						// Queue source view for rerender when switching to preview
+						this.metadataChanged.set(file.path, leaf);
 					}
 				}
 			}),
 		);
 
+		// Process queued rerenders when switching views
 		this.registerEvent(
 			this.app.workspace.on("layout-change", () => {
-				const leaves = this.app.workspace.getLeavesOfType("markdown");
-				for (const leaf of leaves) {
-					const view = leaf.view as MarkdownView;
+				for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
+					const view = leaf.view;
+					if (!(view instanceof MarkdownView)) continue;
+
 					const filePath = view.file?.path;
+					if (!filePath || view.getMode() !== "preview") continue;
 
-					if (!filePath) continue;
-
-					if (view.getMode() === "preview" && metadataChanged.has(filePath)) {
-						const metadataId = metadataChanged.get(filePath);
-
-						// @ts-ignore
-						if (metadataId === leaf.id) {
-							view.previewMode.rerender(true);
-							metadataChanged.delete(filePath);
-						}
+					const matchedLeaf = this.metadataChanged.get(filePath);
+					if (matchedLeaf === leaf) {
+						view.previewMode.rerender(true);
+						this.metadataChanged.delete(filePath);
 					}
 				}
 			}),
 		);
 
-		// Add toggle-icons command
 		this.addCommand({
 			id: "toggle-icons",
 			name: "Toggle notation icons",
-			callback: () => this.toggleNotations(),
+			callback: this.toggleNotations,
 		});
 
-		// Add the settings tab
 		this.addSettingTab(new settingsTab(this.app, this));
 	}
 
-	// Update text and icon colors
-	public updateColors(className: string, colorValue: string) {
+	updateColorsForProfile(profileId: string) {
+		const profile = this.settings.profiles[profileId];
+		if (!profile) return;
+
 		const sheet = this.styleElement.sheet;
 		if (!sheet) return;
 
-		for (let i = 0; i < sheet.cssRules.length; i++) {
+		// Remove existing rules for this profile before adding new ones
+		for (let i = sheet.cssRules.length - 1; i >= 0; i--) {
 			const rule = sheet.cssRules[i];
 			if (
 				rule instanceof CSSStyleRule &&
-				rule.selectorText === `.${className}`
+				rule.selectorText.includes(`cc-${profileId}-`)
 			) {
 				sheet.deleteRule(i);
-				sheet.insertRule(`.${className} { color: ${colorValue} !important; }`);
-				this.updateSvgFill(className);
-				return;
 			}
 		}
 
-		sheet.insertRule(`.${className} { color: ${colorValue} !important; }`);
-		this.updateSvgFill(className);
+		// Add color rules using CSS custom properties
+		for (const [input, color] of Object.entries(profile.colors)) {
+			const className = `cc-${profileId}-${input}`;
+			sheet.insertRule(`.${className} { --notation-color: ${color}; }`);
+		}
+
+		// Update existing elements to use new color classes
+		const elements =
+			this.app.workspace.containerEl.querySelectorAll<HTMLElement>(
+				`[data-profile-id="${profileId}"]`,
+			);
+
+		for (const element of elements) {
+			const input = element.getAttribute("data-color-input");
+			if (!input || !profile.colors[input]) continue;
+
+			element.classList.add(`cc-${profileId}-${input}`, "cc-profile-color");
+		}
 	}
 
-	private updateSvgFill = (className: string) => {
-		const newColor = this.settings[className];
-		if (!newColor) return;
-
-		for (const span of document.querySelectorAll(`span.${className}`)) {
-			const svg = span.querySelector("svg");
-			if (svg) {
-				const textElement = svg.querySelector("text");
-				if (textElement?.textContent?.trim()) {
-					const pathElement = svg.querySelector("path");
-					if (pathElement) pathElement.setAttribute("fill", newColor);
-				}
-			}
-		}
-	};
-
-	// Toggle between text and icon notations
 	private toggleNotations = () => {
 		const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
 		if (!activeView) return;
@@ -238,20 +257,24 @@ export default class comboColors extends Plugin {
 			if (notation.textContent === "[ No notation profile in frontmatter ]")
 				continue;
 
+			// Cache text content for toggling back to text mode
 			notation.dataset.textMode ||= notation.textContent || "";
-			notation.toggleClass("imageMode", !notation.hasClass("imageMode"));
+			const isImageMode = !notation.hasClass("imageMode");
+			notation.toggleClass("imageMode", isImageMode);
 
-			if (notation.hasClass("imageMode")) {
+			if (isImageMode) {
+				// Convert all spans and text nodes to images
 				for (const span of notation.querySelectorAll<HTMLElement>("span")) {
 					this.convertTextToImages(span);
 				}
 
-				for (const node of Array.from(notation.childNodes)) {
+				for (const node of notation.childNodes) {
 					if (node.nodeType === Node.TEXT_NODE && node.textContent?.trim()) {
-						const span = createSpan();
-						span.textContent = node.textContent;
-						node.replaceWith(span);
-						this.convertTextToImages(span);
+						const span = notation.createSpan({ text: node.textContent });
+						if (node.parentNode) {
+							node.parentNode.replaceChild(span, node);
+							this.convertTextToImages(span);
+						}
 					}
 				}
 			} else {
@@ -270,62 +293,83 @@ export default class comboColors extends Plugin {
 
 	private convertTextToImages(span: HTMLElement) {
 		const text = span.textContent || "";
+		if (!text) return;
+
+		const notation = span.closest(".notation");
+		const profileId = notation
+			?.querySelector("[data-profile-id]")
+			?.getAttribute("data-profile-id");
+		const profile = profileId ? this.settings.profiles[profileId] : null;
+		if (!profile) return;
+
 		span.empty();
+		const fragment = createFragment();
 		let pos = 0;
+		const motions = imageMap(profile);
 
 		while (pos < text.length) {
-			const fragment = document.createDocumentFragment();
 			let matched = false;
+			// Skip motion inputs after 'x' to prevent matching in combinations (e.g., 2x4)
+			const isAfterX = pos > 0 && text[pos - 1].toLowerCase() === "x";
 
-			for (const [regex, config] of imageMap()) {
-				const match = regex.exec(text.slice(pos));
+			for (const [regex, config] of motions) {
+				regex.lastIndex = 0;
+				if (isAfterX && config.type === "img") continue;
+
+				const match = regex.exec(text.substring(pos));
 				if (!match || match.index !== 0) continue;
 
-				const count = config.repeat || 1;
-				for (let i = 0; i < count; i++) {
-					const element =
-						config.type === "svg"
-							? (() => {
-									const svg = span.createSvg("svg", {
-										cls: config.class || "default-class",
-										attr: {
-											xmlns: "http://www.w3.org/2000/svg",
-											viewBox: "0 0 100 100",
-											alt: config.alt,
-										},
-									});
-									const svgDoc = new DOMParser().parseFromString(
-										config.source,
-										"image/svg+xml",
-									);
-									svg.append(...Array.from(svgDoc.documentElement.childNodes));
-									return svg as unknown as HTMLElement;
-								})()
-							: span.createEl("img", {
-									cls: config.class || "default-class",
-									attr: {
-										src: config.source,
-										alt: config.alt,
-									},
-								});
+				// Create the element based on type
+				const element =
+					config.type === "svg"
+						? this.createSvgElement(span, config)
+						: span.createEl("img", {
+								cls: config.class || "default-class",
+								attr: {
+									src: config.source,
+									alt: config.alt,
+								},
+							});
 
-					if (element) fragment.appendChild(element);
+				if (element) {
+					const count = config.repeat || 1;
+					for (let i = 0; i < count; i++) {
+						fragment.append(i === 0 ? element : element.cloneNode(true));
+					}
 				}
+
 				pos += match[0].length;
 				matched = true;
 				break;
 			}
 
 			if (!matched) {
-				fragment.appendChild(document.createTextNode(text[pos]));
+				fragment.appendText(text[pos]);
 				pos++;
 			}
-			span.appendChild(fragment);
 		}
 
-		if (span.className) {
-			this.updateSvgFill(span.className);
-		}
+		span.append(fragment);
+	}
+
+	private createSvgElement(
+		span: HTMLElement,
+		config: { class?: string; source: string; alt?: string },
+	) {
+		const svg = span.createSvg("svg", {
+			cls: config.class || "default-class",
+			attr: {
+				xmlns: "http://www.w3.org/2000/svg",
+				viewBox: "0 0 100 100",
+				alt: config.alt || null,
+			},
+		});
+		const svgDoc = new DOMParser().parseFromString(
+			config.source,
+			"image/svg+xml",
+		);
+		svg.append(...Array.from(svgDoc.documentElement.childNodes));
+		return svg;
 	}
 
 	onunload() {
