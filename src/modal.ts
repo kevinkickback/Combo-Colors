@@ -1,12 +1,6 @@
-import { Modal, Setting, Notice } from "obsidian";
-import type { App, MarkdownView, Plugin } from "obsidian";
+import { Modal, Setting, Notice, type ColorComponent } from "obsidian";
+import type { App, MarkdownView } from "obsidian";
 import type comboColors from "./main";
-
-interface AppWithPlugins extends App {
-	plugins: {
-		getPlugin(id: string): Plugin;
-	};
-}
 
 export interface InputConfig {
 	name: string;
@@ -19,6 +13,7 @@ export class InputsModal extends Modal {
 
 	constructor(
 		app: App,
+		private readonly plugin: comboColors,
 		private readonly onSubmit: (inputs: InputConfig[]) => Promise<void>,
 		private readonly profileId: string,
 		initialInputs?: InputConfig[],
@@ -40,9 +35,7 @@ export class InputsModal extends Modal {
 			this.inputs.push(newInput);
 		}
 
-		const rowContainer = containerEl.createDiv({
-			cls: "custom-profile-row",
-		});
+		const rowContainer = containerEl.createDiv({ cls: "custom-profile-row" });
 
 		new Setting(rowContainer)
 			.setName("Input")
@@ -62,7 +55,7 @@ export class InputsModal extends Modal {
 			.setDesc("Optional")
 			.setClass("input-description")
 			.addText((text) => {
-				text.setPlaceholder("Light Punch");
+				text.setPlaceholder("Light punch");
 				if (newInput.description) {
 					text.setValue(newInput.description);
 				}
@@ -71,25 +64,19 @@ export class InputsModal extends Modal {
 				});
 			});
 
+		let colorPicker: ColorComponent;
 		new Setting(rowContainer)
-			.setName("Default Color")
+			.setName("Default color")
 			.setDesc("Used when resetting")
-			.addText((text) => {
-				text.inputEl.type = "color";
-				text.setValue(newInput.color || "#FFFFFF");
-				text.onChange(async (value) => {
+			.addColorPicker((picker) => {
+				colorPicker = picker;
+				picker.setValue(newInput.color || "#FFFFFF").onChange(async (value) => {
 					newInput.color = value;
-					// Get the plugin instance
-					const plugin = (this.app as AppWithPlugins).plugins.getPlugin(
-						"combo-colors",
-					) as comboColors;
-
-					// Update the color in the profile temporarily
-					const profileData = plugin.settings.profiles[this.profileId];
+					const profileData = this.plugin.settings.profiles[this.profileId];
 					if (profileData && newInput.name) {
 						profileData.colors[newInput.name] = value;
-						await plugin.saveSettings();
-						plugin.updateColorsForProfile(this.profileId);
+						await this.plugin.saveSettings();
+						this.plugin.updateColorsForProfile(this.profileId);
 					}
 				});
 			});
@@ -102,7 +89,7 @@ export class InputsModal extends Modal {
 					const index = this.inputs.indexOf(newInput);
 					if (index > -1) {
 						this.inputs.splice(index, 1);
-						rowContainer.remove();
+						rowContainer.detach();
 					}
 				}),
 		);
@@ -113,10 +100,8 @@ export class InputsModal extends Modal {
 		contentEl.empty();
 
 		contentEl.createEl("h2", { text: "Edit inputs" });
-
 		const inputsContainer = contentEl.createDiv({ cls: "inputs-container" });
 
-		// Add existing inputs if any
 		if (this.inputs.length > 0) {
 			for (const input of this.inputs) {
 				this.addInputRow(inputsContainer, input);
@@ -125,14 +110,12 @@ export class InputsModal extends Modal {
 			this.addInputRow(inputsContainer);
 		}
 
-		// Add Input button below the inputs
 		new Setting(contentEl).addButton((btn) =>
 			btn
-				.setButtonText("Add Input")
+				.setButtonText("Add input")
 				.onClick(() => this.addInputRow(inputsContainer)),
 		);
 
-		// Add button container with proper spacing
 		const buttonContainer = contentEl.createDiv({
 			cls: "modal-button-container",
 		});
@@ -151,23 +134,12 @@ export class InputsModal extends Modal {
 							return;
 						}
 
-						// Get the plugin instance
-						const plugin = (this.app as AppWithPlugins).plugins.getPlugin(
-							"combo-colors",
-						) as comboColors;
-						const profileData = plugin.settings.profiles[this.profileId];
-
-						// Clear existing descriptions (but not colors since they're already updated)
+						const profileData = this.plugin.settings.profiles[this.profileId];
 						profileData.desc = {};
 
-						// Update descriptions and store default colors
 						for (const input of this.inputs) {
 							profileData.desc[input.name] = input.description;
-
-							// Store the current color as default if it's not already set
-							if (!profileData.defaultColors) {
-								profileData.defaultColors = {};
-							}
+							profileData.defaultColors ??= {};
 							if (!profileData.defaultColors[input.name]) {
 								profileData.defaultColors[input.name] = input.color;
 							}
@@ -175,9 +147,7 @@ export class InputsModal extends Modal {
 
 						await this.onSubmit(this.inputs);
 
-						// Rerender all visible markdown leaves that use this profile
-						const leaves = this.app.workspace.getLeavesOfType("markdown");
-						for (const leaf of leaves) {
+						for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
 							const view = leaf.view as MarkdownView;
 							const file = view.file;
 							if (!file) continue;
@@ -185,12 +155,9 @@ export class InputsModal extends Modal {
 							const frontmatter = this.app.metadataCache.getCache(
 								file.path,
 							)?.frontmatter;
-							const fileProfileId = frontmatter?.cc_profile;
-
-							// Only rerender if the file explicitly uses this profile
 							if (
 								view.getMode() === "preview" &&
-								fileProfileId === this.profileId
+								frontmatter?.cc_profile === this.profileId
 							) {
 								view.previewMode.rerender(true);
 							}
@@ -236,7 +203,7 @@ export class CustomProfileModal extends Modal {
 
 		new Setting(contentEl)
 			.setName("Frontmatter ID")
-			.setDesc("Unique Identifier used by cc_profile")
+			.setDesc("Unique identifier used by cc_profile")
 			.addText((text) => {
 				text.setPlaceholder("cstm");
 				text.onChange((value) => {
@@ -245,6 +212,9 @@ export class CustomProfileModal extends Modal {
 			});
 
 		new Setting(contentEl)
+			.addButton((btn) =>
+				btn.setButtonText("Cancel").onClick(() => this.close()),
+			)
 			.addButton((btn) =>
 				btn
 					.setButtonText("Create profile")
@@ -257,9 +227,6 @@ export class CustomProfileModal extends Modal {
 						await this.onSubmit(profileId, profileName);
 						this.close();
 					}),
-			)
-			.addButton((btn) =>
-				btn.setButtonText("Cancel").onClick(() => this.close()),
 			);
 	}
 
@@ -281,12 +248,17 @@ export class DeleteProfileModal extends Modal {
 
 	onOpen() {
 		const { contentEl } = this;
+		contentEl.empty();
+
 		contentEl.createEl("h2", { text: "Delete profile" });
 		contentEl.createEl("p", {
 			text: `Are you sure you want to delete the "${this.profileName}" profile? This cannot be undone.`,
 		});
 
 		new Setting(contentEl)
+			.addButton((btn) =>
+				btn.setButtonText("Cancel").onClick(() => this.close()),
+			)
 			.addButton((btn) =>
 				btn
 					.setButtonText("Delete")
@@ -295,11 +267,6 @@ export class DeleteProfileModal extends Modal {
 						await this.onConfirm();
 						this.close();
 					}),
-			)
-			.addButton((btn) =>
-				btn.setButtonText("Cancel").onClick(() => {
-					this.close();
-				}),
 			);
 	}
 
