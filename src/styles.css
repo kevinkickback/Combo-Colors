@@ -1,9 +1,9 @@
 .cc-profile-color {
 	color: var(--notation-color);
+	white-space: nowrap;
 }
 
-.cc-profile-color svg path,
-.cc-profile-color svg circle {
+.cc-profile-color svg:not(.motionIcon) circle {
 	fill: var(--notation-color);
 }
 
@@ -27,14 +27,14 @@
 /* Set button icon sizes */
 .buttonIcon {
 	height: 1.4rem;
-	vertical-align: middle;
+	vertical-align: text-bottom;
 }
 
 /* Set motion icon sizes */
 .motionIcon {
 	height: 1.6rem;
-	vertical-align: middle;
-	margin-left: -0.2rem;
+	vertical-align: text-bottom;
+	margin-left: -0.1rem;
 }
 
 /* Hide neutral motion icon */
@@ -42,36 +42,48 @@
 	display: none;
 }
 
-/* Add margin when no image is directly before it */
-.motionIcon[alt="QCB"]:not(.motionIcon + .motionIcon) {
-	margin-left: 0.1rem;
+/* Grow gap between motion and button */
+.motionIcon[alt="Up"],
+.motionIcon[alt="Back"],
+.motionIcon[alt="Forward"],
+.motionIcon[alt="UpForward"] {
+	transform: translateY(0.18rem);
 }
 
+.motionIcon[alt="DownForward"] {
+	transform: translateY(0.13rem);
+}
+
+/* Add margin when no image is directly before it
+.motionIcon[alt="QCB"]:not(.motionIcon + .motionIcon) {
+	transform: translateX(-0.5rem);
+} */
+
 /* Shrink gap between double motions */
-img.motionIcon[alt="Up"] + .motionIcon,
-img.motionIcon[alt="Down"] + .motionIcon,
-img.motionIcon[alt="Back"] + .motionIcon {
-	margin-left: -0.4rem;
+.motionIcon[alt="Up"] + .motionIcon,
+.motionIcon[alt="Down"] + .motionIcon,
+.motionIcon[alt="Back"] + .motionIcon {
+	transform: translateX(-0.4rem);
 }
 
 /* Shrink gap between motion and button */
-img.motionIcon[alt="Up"] + .buttonIcon,
-img.motionIcon[alt="Down"] + .buttonIcon,
-img.motionIcon[alt="Back"] + .buttonIcon,
-img.motionIcon[alt="QCB"] + .buttonIcon,
-img.motionIcon[alt="RDP"] + .buttonIcon {
-	margin-left: -0.3rem;
+.motionIcon[alt="Up"] + .buttonIcon,
+.motionIcon[alt="Down"] + .buttonIcon,
+.motionIcon[alt="Back"] + .buttonIcon,
+.motionIcon[alt="QCB"] + .buttonIcon,
+.motionIcon[alt="RDP"] + .buttonIcon {
+	transform: translateX(-0.2rem);
 }
 
 /* Grow gap between motion and button */
-img.motionIcon[alt="Forward"],
-img.motionIcon[alt="QCF"] {
-	margin-right: 0.2rem;
+.motionIcon[alt="Forward"],
+.motionIcon[alt="QCF"] {
+	transform: translateX(0.2rem);
 }
 
 /* Adjust margin when QCB motion is preceded by text */
-.notation:not(:empty) > :not(img) + img.motionIcon[alt="QCB"] {
-	margin-left: 1rem;
+.notation:not(:empty) > :not(img) + .motionIcon[alt="QCB"] {
+	transform: translateX(1rem);
 }
 
 /* Missing profile notation message */

@@ -251,7 +251,6 @@ export default class comboColors extends Plugin {
 		const notations =
 			activeView.containerEl.querySelectorAll<HTMLElement>(".notation");
 		const button = activeView.containerEl.querySelector<HTMLElement>(".combo");
-		let validNotationsProcessed = false;
 
 		for (const notation of notations) {
 			if (notation.textContent === "[ No notation profile in frontmatter ]")
@@ -263,27 +262,24 @@ export default class comboColors extends Plugin {
 			notation.toggleClass("imageMode", isImageMode);
 
 			if (isImageMode) {
-				// Convert all spans and text nodes to images
-				for (const span of notation.querySelectorAll<HTMLElement>("span")) {
-					this.convertTextToImages(span);
-				}
-
-				for (const node of notation.childNodes) {
+				// First convert all text nodes to spans
+				for (const node of Array.from(notation.childNodes)) {
 					if (node.nodeType === Node.TEXT_NODE && node.textContent?.trim()) {
 						const span = notation.createSpan({ text: node.textContent });
-						if (node.parentNode) {
-							node.parentNode.replaceChild(span, node);
-							this.convertTextToImages(span);
-						}
+						node.parentNode?.replaceChild(span, node);
 					}
+				}
+
+				// Then convert all spans to images
+				for (const span of notation.querySelectorAll<HTMLElement>("span")) {
+					this.convertTextToImages(span);
 				}
 			} else {
 				activeView.previewMode.rerender(true);
 			}
-			validNotationsProcessed = true;
 		}
 
-		if (validNotationsProcessed && button) {
+		if (notations.length > 0 && button) {
 			button.textContent =
 				button.textContent === "Text Notation"
 					? "Icon Notation"
@@ -295,12 +291,12 @@ export default class comboColors extends Plugin {
 		const text = span.textContent || "";
 		if (!text) return;
 
-		const notation = span.closest(".notation");
-		const profileId = notation
+		const profileId = span
+			.closest(".notation")
 			?.querySelector("[data-profile-id]")
 			?.getAttribute("data-profile-id");
-		const profile = profileId ? this.settings.profiles[profileId] : null;
-		if (!profile) return;
+		if (!profileId || !this.settings.profiles[profileId]) return;
+		const profile = this.settings.profiles[profileId];
 
 		span.empty();
 		const fragment = createFragment();
@@ -309,27 +305,18 @@ export default class comboColors extends Plugin {
 
 		while (pos < text.length) {
 			let matched = false;
-			// Skip motion inputs after 'x' to prevent matching in combinations (e.g., 2x4)
+			// Skip motion inputs after 'x' to prevent matching in combinations (e.g., 5Cx4)
 			const isAfterX = pos > 0 && text[pos - 1].toLowerCase() === "x";
 
 			for (const [regex, config] of motions) {
 				regex.lastIndex = 0;
-				if (isAfterX && config.type === "img") continue;
+				if (isAfterX) continue;
 
 				const match = regex.exec(text.substring(pos));
 				if (!match || match.index !== 0) continue;
 
-				// Create the element based on type
-				const element =
-					config.type === "svg"
-						? this.createSvgElement(span, config)
-						: span.createEl("img", {
-								cls: config.class || "default-class",
-								attr: {
-									src: config.source,
-									alt: config.alt,
-								},
-							});
+				// Create SVG element
+				const element = this.createSvgElement(span, config);
 
 				if (element) {
 					const count = config.repeat || 1;
@@ -356,18 +343,22 @@ export default class comboColors extends Plugin {
 		span: HTMLElement,
 		config: { class?: string; source: string; alt?: string },
 	) {
-		const svg = span.createSvg("svg", {
-			cls: config.class || "default-class",
-			attr: {
-				xmlns: "http://www.w3.org/2000/svg",
-				viewBox: "0 0 100 100",
-				alt: config.alt || null,
-			},
-		});
+		// Parse the source SVG first to get its viewBox
 		const svgDoc = new DOMParser().parseFromString(
 			config.source,
 			"image/svg+xml",
 		);
+		const sourceViewBox =
+			svgDoc.documentElement.getAttribute("viewBox") || "0 0 100 100";
+
+		const svg = span.createSvg("svg", {
+			cls: config.class,
+			attr: {
+				xmlns: "http://www.w3.org/2000/svg",
+				viewBox: sourceViewBox,
+				alt: config.alt || null,
+			},
+		});
 		svg.append(...Array.from(svgDoc.documentElement.childNodes));
 		return svg;
 	}
