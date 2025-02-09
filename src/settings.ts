@@ -8,16 +8,17 @@ export interface CustomProfile {
 	desc: Record<string, string>;
 	colors: Record<string, string>;
 	defaultColors?: Record<string, string>;
+	textColor?: string;
 }
 
 export interface Settings {
 	selectedProfile: string;
 	profiles: Record<string, CustomProfile>;
+	iconSize: "small" | "medium" | "large";
 }
 
 export type InputMapType = Record<string, CustomProfile>;
 
-// Built-in notation profiles
 export const inputMap: InputMapType = {
 	asw: {
 		name: "ASW Standard",
@@ -121,6 +122,7 @@ export const inputMap: InputMapType = {
 export const DEFAULT_SETTINGS: Settings = {
 	selectedProfile: "asw",
 	profiles: { ...inputMap },
+	iconSize: "medium",
 };
 
 export class settingsTab extends PluginSettingTab {
@@ -167,6 +169,7 @@ export class settingsTab extends PluginSettingTab {
 							name: profileName,
 							desc: {},
 							colors: {},
+							textColor: "#FFFFFF",
 						};
 						this.plugin.settings.selectedProfile = profileId;
 						await this.plugin.saveSettings();
@@ -209,19 +212,56 @@ export class settingsTab extends PluginSettingTab {
 					frag.appendText(" to the file's frontmatter");
 				}),
 			);
-	}
 
-	private createColorSection(containerEl: HTMLElement): void {
-		const profile = this.plugin.settings.selectedProfile;
-		const profileData = this.plugin.settings.profiles[profile];
-		if (!profileData) {
-			new Notice("Profile not found");
-			return;
-		}
+		new Setting(containerEl)
+			.setName("Icon size")
+			.setDesc("Set the size of notation icons")
+			.addDropdown((dropdown) => {
+				dropdown
+					.addOption("small", "Small")
+					.addOption("medium", "Medium")
+					.addOption("large", "Large")
+					.setValue(this.plugin.settings.iconSize)
+					.onChange(async (value: "small" | "medium" | "large") => {
+						this.plugin.settings.iconSize = value;
+						await this.plugin.saveSettings();
+						this.plugin.updateIconSizes();
+					});
+			});
 
+		new Setting(containerEl)
+			.setName("Color settings")
+			.setDesc("Customize the colors for notation text and icons");
+
+		const colorSection = containerEl.createDiv({
+			cls: "color-settings-container",
+		});
+
+		new Setting(colorSection)
+			.setName("Text color")
+			.setDesc("Applies to all inputs below")
+			.addColorPicker((picker) => {
+				picker
+					.setValue(profileData.textColor || "#FFFFFF")
+					.onChange(async (value) => {
+						profileData.textColor = value;
+						await this.plugin.saveSettings();
+						this.plugin.updateColorsForProfile(profile);
+					});
+			})
+			.addButton((button) =>
+				button.setIcon("reset").onClick(async () => {
+					profileData.textColor = "#FFFFFF";
+					await this.plugin.saveSettings();
+					this.plugin.updateColorsForProfile(profile);
+					this.display();
+				}),
+			);
+
+		// Add individual color settings
 		for (const [input, desc] of Object.entries(profileData.desc)) {
 			let colorPicker: ColorComponent;
-			new Setting(containerEl)
+			new Setting(colorSection)
 				.setName(input)
 				.setDesc(desc)
 				.addColorPicker((picker) => {
@@ -252,7 +292,7 @@ export class settingsTab extends PluginSettingTab {
 		}
 
 		if (!(profile in inputMap)) {
-			new Setting(containerEl).addButton((button) =>
+			new Setting(colorSection).addButton((button) =>
 				button.setButtonText("Edit inputs").onClick(() => {
 					const existingInputs = Object.entries(profileData.desc).map(
 						([name, description]) => ({
@@ -296,6 +336,5 @@ export class settingsTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 		this.createProfileSection(containerEl);
-		this.createColorSection(containerEl);
 	}
 }

@@ -1,14 +1,15 @@
+/* Dynamic colors for profile notations */
 .cc-profile-color {
 	color: var(--notation-color);
+	white-space: nowrap;
 }
 
-.cc-profile-color svg path,
-.cc-profile-color svg circle {
+.cc-profile-color svg:not(.motionIcon) circle {
 	fill: var(--notation-color);
 }
 
 .cc-profile-color svg text {
-	fill: white;
+	fill: var(--text-color, white);
 }
 
 /* keep notations together */
@@ -24,54 +25,66 @@
 	font-size: 1rem;
 }
 
-/* Set button icon sizes */
-.buttonIcon {
-	height: 1.4rem;
-	vertical-align: middle;
-}
-
-/* Set motion icon sizes */
-.motionIcon {
-	height: 1.6rem;
-	vertical-align: middle;
-	margin-left: -0.2rem;
-}
-
 /* Hide neutral motion icon */
 .hidden {
 	display: none;
 }
 
-/* Add margin when no image is directly before it */
-.motionIcon[alt="QCB"]:not(.motionIcon + .motionIcon) {
-	margin-left: 0.1rem;
+/* Reduce height of icons */
+.motionIcon[alt="Up"],
+.motionIcon[alt="Back"],
+.motionIcon[alt="Forward"],
+.motionIcon[alt="UpForward"] {
+	transform: translateY(0.18rem);
 }
 
-/* Shrink gap between double motions */
-img.motionIcon[alt="Up"] + .motionIcon,
-img.motionIcon[alt="Down"] + .motionIcon,
-img.motionIcon[alt="Back"] + .motionIcon {
-	margin-left: -0.4rem;
+.motionIcon[alt="DownForward"],
+.motionIcon[alt="DownBack"] {
+	transform: translateY(0.13rem);
 }
 
-/* Shrink gap between motion and button */
-img.motionIcon[alt="Up"] + .buttonIcon,
-img.motionIcon[alt="Down"] + .buttonIcon,
-img.motionIcon[alt="Back"] + .buttonIcon,
-img.motionIcon[alt="QCB"] + .buttonIcon,
-img.motionIcon[alt="RDP"] + .buttonIcon {
-	margin-left: -0.3rem;
+/* Reduce gap between icons */
+.motionIcon[alt="Up"] + .buttonIcon,
+.motionIcon[alt="Down"] + .buttonIcon,
+.motionIcon[alt="Back"] + .buttonIcon,
+.motionIcon[alt="DownBack"] + .buttonIcon,
+.motionIcon[alt="QCB"] + .buttonIcon,
+.motionIcon[alt="RDP"] + .buttonIcon {
+	margin-left: -0.2rem;
 }
 
-/* Grow gap between motion and button */
-img.motionIcon[alt="Forward"],
-img.motionIcon[alt="QCF"] {
-	margin-right: 0.2rem;
+.motionIcon[alt="Down"] + .motionIcon[alt="Down"] {
+	margin-left: -.5rem;
 }
 
-/* Adjust margin when QCB motion is preceded by text */
-.notation:not(:empty) > :not(img) + img.motionIcon[alt="QCB"] {
-	margin-left: 1rem;
+.motionIcon[alt="QCB"] + .motionIcon[alt="QCB"] {
+	margin-left: -0.2rem;
+}
+
+span > .motionIcon:first-child[alt="Back"] {
+	margin-left: -0.15rem;
+}
+
+span > .motionIcon:first-child[alt="QCF"] {
+	margin-left: -0.15rem;
+}
+
+/* Increase gap between icons */
+.motionIcon[alt="Forward"] + .buttonIcon {
+	margin-left: 0.15rem;
+}
+
+span > .motionIcon:first-child[alt="QCB"],
+span > .motionIcon:first-child[alt="RDP"] {
+	margin-left: 0.15rem;
+}
+
+.motionIcon[alt="QCF"] + .buttonIcon {
+	margin-left: 0.2rem;
+}
+
+.notation > span:not(:first-child) > .motionIcon:first-child[alt="Back"] {
+	margin-left: 0.15rem;
 }
 
 /* Missing profile notation message */
@@ -86,7 +99,7 @@ img.motionIcon[alt="QCF"] {
 	border-radius: 5px;
 }
 
-/* Notation button styling */
+/* Button styling */
 button.combo {
 	--border: 2px;
 	--slant: 0.7em;
@@ -116,22 +129,26 @@ button.combo {
 	);
 	transition: color var(--t, 0.3s), background-size 0.3s;
 }
+
 button.combo:focus-visible {
 	outline-offset: calc(-1 * var(--border));
 	outline: var(--border) solid #000c;
 	clip-path: none;
 	background-size: 0 0;
 }
+
 button.combo:hover,
 button.combo:active {
 	background-size: 100% 100%;
 	color: var(--color-base-30);
 	--t: 0.2s 0.1s;
 }
+
 button.combo:active {
 	--s: #0005;
 	transition: none;
 }
+
 @media screen and (max-width: 500px) {
 	button.combo {
 		float: none;
@@ -141,7 +158,7 @@ button.combo:active {
 	}
 }
 
-/* custom setting items description */
+/* Settings styles */
 .setting-item-description-custom {
 	color: var(--text-muted);
 	font-size: var(--font-ui-smaller);
@@ -150,17 +167,16 @@ button.combo:active {
 	padding-bottom: 0.75em;
 	line-height: var(--line-height-tight);
 }
+
 .setting-item:is(:has(+ .setting-item-description-custom)) {
 	padding-bottom: 0;
 }
 
-/* Highlight profile link */
 .hlt-interaction {
 	color: var(--text-accent);
 	cursor: pointer;
 }
 
-/* mobile adjustments */
 @media screen and (max-width: 500px) {
 	.setting-item:is(:has(+ .setting-item-description-custom)) {
 		padding-bottom: 1rem !important;
@@ -174,12 +190,10 @@ button.combo:active {
 	background-color: var(--background-secondary);
 }
 
-/* Input modal specific styles */
 .inputs-container {
 	border-radius: 4px;
 }
 
-/* Add Input button styling */
 .inputs-container + .setting-item {
 	margin-bottom: 16px;
 	padding: 0;
@@ -199,16 +213,28 @@ button.combo:active {
 	margin: 0;
 }
 
-/* Ensure settings in custom profile rows are properly spaced */
 .custom-profile-row .setting-item {
 	padding: 0.35rem 0;
 	border: none;
 }
 
-/* Make disabled delete button more apparent */
+.color-settings-container {
+	padding: 0.75em;
+	margin-top: 0.5em;
+	border-radius: 5px;
+	background-color: var(--background-secondary);
+}
+
 .setting-item button.mod-warning[disabled] {
 	opacity: 0.3;
 	cursor: not-allowed;
 	background-color: var(--background-modifier-error);
 	color: var(--text-on-accent);
+}
+
+.color-settings-container {
+	padding: 0.75em;
+	margin-top: 0.5em;
+	border-radius: 5px;
+	background-color: var(--background-secondary);
 }
