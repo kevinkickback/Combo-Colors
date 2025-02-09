@@ -1,3 +1,4 @@
+/* Dynamic colors for profile notations */
 .cc-profile-color {
 	color: var(--notation-color);
 	white-space: nowrap;
@@ -8,7 +9,7 @@
 }
 
 .cc-profile-color svg text {
-	fill: white;
+	fill: var(--text-color, white);
 }
 
 /* keep notations together */
@@ -24,25 +25,12 @@
 	font-size: 1rem;
 }
 
-/* Set button icon sizes */
-.buttonIcon {
-	height: 1.4rem;
-	vertical-align: text-bottom;
-}
-
-/* Set motion icon sizes */
-.motionIcon {
-	height: 1.6rem;
-	vertical-align: text-bottom;
-	margin-left: -0.1rem;
-}
-
 /* Hide neutral motion icon */
 .hidden {
 	display: none;
 }
 
-/* Grow gap between motion and button */
+/* Reduce height of icons */
 .motionIcon[alt="Up"],
 .motionIcon[alt="Back"],
 .motionIcon[alt="Forward"],
@@ -50,40 +38,53 @@
 	transform: translateY(0.18rem);
 }
 
-.motionIcon[alt="DownForward"] {
+.motionIcon[alt="DownForward"],
+.motionIcon[alt="DownBack"] {
 	transform: translateY(0.13rem);
 }
 
-/* Add margin when no image is directly before it
-.motionIcon[alt="QCB"]:not(.motionIcon + .motionIcon) {
-	transform: translateX(-0.5rem);
-} */
-
-/* Shrink gap between double motions */
-.motionIcon[alt="Up"] + .motionIcon,
-.motionIcon[alt="Down"] + .motionIcon,
-.motionIcon[alt="Back"] + .motionIcon {
-	transform: translateX(-0.4rem);
-}
-
-/* Shrink gap between motion and button */
+/* Reduce gap between icons */
 .motionIcon[alt="Up"] + .buttonIcon,
 .motionIcon[alt="Down"] + .buttonIcon,
 .motionIcon[alt="Back"] + .buttonIcon,
+.motionIcon[alt="DownBack"] + .buttonIcon,
 .motionIcon[alt="QCB"] + .buttonIcon,
 .motionIcon[alt="RDP"] + .buttonIcon {
-	transform: translateX(-0.2rem);
+	margin-left: -0.2rem;
 }
 
-/* Grow gap between motion and button */
-.motionIcon[alt="Forward"],
-.motionIcon[alt="QCF"] {
-	transform: translateX(0.2rem);
+.motionIcon[alt="Down"] + .motionIcon[alt="Down"] {
+	margin-left: -.5rem;
 }
 
-/* Adjust margin when QCB motion is preceded by text */
-.notation:not(:empty) > :not(img) + .motionIcon[alt="QCB"] {
-	transform: translateX(1rem);
+.motionIcon[alt="QCB"] + .motionIcon[alt="QCB"] {
+	margin-left: -0.2rem;
+}
+
+span > .motionIcon:first-child[alt="Back"] {
+	margin-left: -0.15rem;
+}
+
+span > .motionIcon:first-child[alt="QCF"] {
+	margin-left: -0.15rem;
+}
+
+/* Increase gap between icons */
+.motionIcon[alt="Forward"] + .buttonIcon {
+	margin-left: 0.15rem;
+}
+
+span > .motionIcon:first-child[alt="QCB"],
+span > .motionIcon:first-child[alt="RDP"] {
+	margin-left: 0.15rem;
+}
+
+.motionIcon[alt="QCF"] + .buttonIcon {
+	margin-left: 0.2rem;
+}
+
+.notation > span:not(:first-child) > .motionIcon:first-child[alt="Back"] {
+	margin-left: 0.15rem;
 }
 
 /* Missing profile notation message */
@@ -98,7 +99,7 @@
 	border-radius: 5px;
 }
 
-/* Notation button styling */
+/* Button styling */
 button.combo {
 	--border: 2px;
 	--slant: 0.7em;
@@ -128,22 +129,26 @@ button.combo {
 	);
 	transition: color var(--t, 0.3s), background-size 0.3s;
 }
+
 button.combo:focus-visible {
 	outline-offset: calc(-1 * var(--border));
 	outline: var(--border) solid #000c;
 	clip-path: none;
 	background-size: 0 0;
 }
+
 button.combo:hover,
 button.combo:active {
 	background-size: 100% 100%;
 	color: var(--color-base-30);
 	--t: 0.2s 0.1s;
 }
+
 button.combo:active {
 	--s: #0005;
 	transition: none;
 }
+
 @media screen and (max-width: 500px) {
 	button.combo {
 		float: none;
@@ -153,7 +158,7 @@ button.combo:active {
 	}
 }
 
-/* custom setting items description */
+/* Settings styles */
 .setting-item-description-custom {
 	color: var(--text-muted);
 	font-size: var(--font-ui-smaller);
@@ -162,17 +167,16 @@ button.combo:active {
 	padding-bottom: 0.75em;
 	line-height: var(--line-height-tight);
 }
+
 .setting-item:is(:has(+ .setting-item-description-custom)) {
 	padding-bottom: 0;
 }
 
-/* Highlight profile link */
 .hlt-interaction {
 	color: var(--text-accent);
 	cursor: pointer;
 }
 
-/* mobile adjustments */
 @media screen and (max-width: 500px) {
 	.setting-item:is(:has(+ .setting-item-description-custom)) {
 		padding-bottom: 1rem !important;
@@ -186,12 +190,10 @@ button.combo:active {
 	background-color: var(--background-secondary);
 }
 
-/* Input modal specific styles */
 .inputs-container {
 	border-radius: 4px;
 }
 
-/* Add Input button styling */
 .inputs-container + .setting-item {
 	margin-bottom: 16px;
 	padding: 0;
@@ -211,16 +213,28 @@ button.combo:active {
 	margin: 0;
 }
 
-/* Ensure settings in custom profile rows are properly spaced */
 .custom-profile-row .setting-item {
 	padding: 0.35rem 0;
 	border: none;
 }
 
-/* Make disabled delete button more apparent */
+.color-settings-container {
+	padding: 0.75em;
+	margin-top: 0.5em;
+	border-radius: 5px;
+	background-color: var(--background-secondary);
+}
+
 .setting-item button.mod-warning[disabled] {
 	opacity: 0.3;
 	cursor: not-allowed;
 	background-color: var(--background-modifier-error);
 	color: var(--text-on-accent);
+}
+
+.color-settings-container {
+	padding: 0.75em;
+	margin-top: 0.5em;
+	border-radius: 5px;
+	background-color: var(--background-secondary);
 }

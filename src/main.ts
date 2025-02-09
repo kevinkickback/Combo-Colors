@@ -10,6 +10,7 @@ import { imageMap, colorPatterns } from "./patterns";
 export default class comboColors extends Plugin {
 	styleElement: HTMLStyleElement;
 	settings: Settings;
+
 	// Track leaves that need rerendering after profile changes
 	private metadataChanged: Map<string, WorkspaceLeaf>;
 
@@ -20,10 +21,13 @@ export default class comboColors extends Plugin {
 
 		await this.loadSettings();
 
-		// Generate CSS rules for all profiles to ensure frontmatter overrides work immediately
+		// Generate profile & icon size CSS rules for immediate use
 		for (const profileId of Object.keys(this.settings.profiles)) {
 			this.updateColorsForProfile(profileId);
+			this.updateIconSizes();
 		}
+
+		this.updateIconSizes();
 
 		// First processor: Convert =:notation:= syntax into spans
 		this.registerMarkdownPostProcessor((element: HTMLElement) => {
@@ -61,7 +65,7 @@ export default class comboColors extends Plugin {
 			for (const node of element.childNodes) processNode(node);
 		});
 
-		// Second processor: Apply colors and process inputs based on profile from frontmatter
+		// Second processor: Apply colors and process inputs based on profile
 		this.registerMarkdownPostProcessor(
 			(element: HTMLElement, context: MarkdownPostProcessorContext) => {
 				const file = context.sourcePath;
@@ -227,7 +231,9 @@ export default class comboColors extends Plugin {
 		// Add color rules using CSS custom properties
 		for (const [input, color] of Object.entries(profile.colors)) {
 			const className = `cc-${profileId}-${input}`;
-			sheet.insertRule(`.${className} { --notation-color: ${color}; }`);
+			sheet.insertRule(
+				`.${className} { --notation-color: ${color}; --text-color: ${profile.textColor || "#FFFFFF"}; }`,
+			);
 		}
 
 		// Update existing elements to use new color classes
@@ -242,6 +248,37 @@ export default class comboColors extends Plugin {
 
 			element.classList.add(`cc-${profileId}-${input}`, "cc-profile-color");
 		}
+	}
+
+	updateIconSizes() {
+		const sheet = this.styleElement.sheet;
+		if (!sheet) return;
+
+		// Remove existing icon size rules
+		for (let i = sheet.cssRules.length - 1; i >= 0; i--) {
+			const rule = sheet.cssRules[i];
+			if (
+				rule instanceof CSSStyleRule &&
+				(rule.selectorText === ".buttonIcon" ||
+					rule.selectorText === ".motionIcon")
+			) {
+				sheet.deleteRule(i);
+			}
+		}
+
+		const sizes = {
+			small: { button: "1.2rem", motion: "1.4rem" },
+			medium: { button: "1.4rem", motion: "1.6rem" },
+			large: { button: "1.6rem", motion: "1.8rem" },
+		};
+
+		const selectedSize = sizes[this.settings.iconSize];
+		sheet.insertRule(
+			`.buttonIcon { height: ${selectedSize.button}; vertical-align: text-bottom; }`,
+		);
+		sheet.insertRule(
+			`.motionIcon { height: ${selectedSize.motion}; vertical-align: text-bottom; margin-left: -0.1rem; }`,
+		);
 	}
 
 	private toggleNotations = () => {
@@ -315,7 +352,6 @@ export default class comboColors extends Plugin {
 				const match = regex.exec(text.substring(pos));
 				if (!match || match.index !== 0) continue;
 
-				// Create SVG element
 				const element = this.createSvgElement(span, config);
 
 				if (element) {
@@ -343,7 +379,6 @@ export default class comboColors extends Plugin {
 		span: HTMLElement,
 		config: { class?: string; source: string; alt?: string },
 	) {
-		// Parse the source SVG first to get its viewBox
 		const svgDoc = new DOMParser().parseFromString(
 			config.source,
 			"image/svg+xml",
