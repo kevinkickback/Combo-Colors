@@ -143,20 +143,6 @@ export class settingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Notation profile")
-			.addDropdown((dropdown) => {
-				for (const [key, profile] of Object.entries(
-					this.plugin.settings.profiles,
-				)) {
-					dropdown.addOption(key, profile.name);
-				}
-				dropdown
-					.setValue(this.plugin.settings.selectedProfile)
-					.onChange(async (value) => {
-						this.plugin.settings.selectedProfile = value;
-						await this.plugin.saveSettings();
-						this.display();
-					});
-			})
 			.addButton((button) =>
 				button.setIcon("plus").onClick(() => {
 					new CustomProfileModal(this.app, async (profileId, profileName) => {
@@ -198,6 +184,20 @@ export class settingsTab extends PluginSettingTab {
 						).open();
 					}),
 			)
+			.addDropdown((dropdown) => {
+				for (const [key, profile] of Object.entries(
+					this.plugin.settings.profiles,
+				)) {
+					dropdown.addOption(key, profile.name);
+				}
+				dropdown
+					.setValue(this.plugin.settings.selectedProfile)
+					.onChange(async (value) => {
+						this.plugin.settings.selectedProfile = value;
+						await this.plugin.saveSettings();
+						this.display();
+					});
+			})
 			.setDesc(
 				createFragment((frag) => {
 					frag.appendText("To use this profile, add ");
@@ -240,6 +240,18 @@ export class settingsTab extends PluginSettingTab {
 		new Setting(colorSection)
 			.setName("Text color")
 			.setDesc("Applies to all inputs below")
+			.addButton((button) =>
+				button
+					.setIcon("reset")
+					.setClass("clickable-icon")
+					.setClass("extra-setting-button")
+					.onClick(async () => {
+						profileData.textColor = "#FFFFFF";
+						await this.plugin.saveSettings();
+						this.plugin.updateColorsForProfile(profile);
+						this.display();
+					}),
+			)
 			.addColorPicker((picker) => {
 				picker
 					.setValue(profileData.textColor || "#FFFFFF")
@@ -248,15 +260,7 @@ export class settingsTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 						this.plugin.updateColorsForProfile(profile);
 					});
-			})
-			.addButton((button) =>
-				button.setIcon("reset").onClick(async () => {
-					profileData.textColor = "#FFFFFF";
-					await this.plugin.saveSettings();
-					this.plugin.updateColorsForProfile(profile);
-					this.display();
-				}),
-			);
+			});
 
 		// Add individual color settings
 		for (const [input, desc] of Object.entries(profileData.desc)) {
@@ -264,6 +268,26 @@ export class settingsTab extends PluginSettingTab {
 			new Setting(colorSection)
 				.setName(input)
 				.setDesc(desc)
+				.addButton((button) => {
+					const defaultProfile = inputMap[profile];
+					const defaultColor =
+						defaultProfile?.colors?.[input] ||
+						profileData.defaultColors?.[input];
+
+					return button
+						.setIcon("reset")
+						.setClass("clickable-icon")
+						.setClass("extra-setting-button")
+						.setDisabled(!defaultColor)
+						.onClick(async () => {
+							if (defaultColor) {
+								profileData.colors[input] = defaultColor;
+								colorPicker.setValue(defaultColor);
+								await this.plugin.saveSettings();
+								this.plugin.updateColorsForProfile(profile);
+							}
+						});
+				})
 				.addColorPicker((picker) => {
 					colorPicker = picker;
 					picker
@@ -273,22 +297,7 @@ export class settingsTab extends PluginSettingTab {
 							await this.plugin.saveSettings();
 							this.plugin.updateColorsForProfile(profile);
 						});
-				})
-				.addButton((button) =>
-					button.setIcon("reset").onClick(async () => {
-						const defaultProfile = inputMap[profile];
-						const newColor =
-							defaultProfile?.colors?.[input] ||
-							profileData.defaultColors?.[input];
-
-						if (newColor) {
-							profileData.colors[input] = newColor;
-							colorPicker.setValue(newColor);
-							await this.plugin.saveSettings();
-							this.plugin.updateColorsForProfile(profile);
-						}
-					}),
-				);
+				});
 		}
 
 		if (!(profile in inputMap)) {

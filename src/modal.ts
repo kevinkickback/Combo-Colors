@@ -194,12 +194,15 @@ export class CustomProfileModal extends Modal {
 		let profileId = "";
 		let profileName = "";
 
-		new Setting(contentEl).setName("Display name").addText((text) => {
-			text.setPlaceholder("Custom");
-			text.onChange((value) => {
-				profileName = value;
+		new Setting(contentEl)
+			.setName("Display name")
+			.setDesc("Shown in the profile dropdown menu")
+			.addText((text) => {
+				text.setPlaceholder("Custom");
+				text.onChange((value) => {
+					profileName = value;
+				});
 			});
-		});
 
 		new Setting(contentEl)
 			.setName("Frontmatter ID")

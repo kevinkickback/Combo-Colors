@@ -226,15 +226,5 @@ button.combo:active {
 }
 
 .setting-item button.mod-warning[disabled] {
-	opacity: 0.3;
-	cursor: not-allowed;
-	background-color: var(--background-modifier-error);
-	color: var(--text-on-accent);
-}
-
-.color-settings-container {
-	padding: 0.75em;
-	margin-top: 0.5em;
-	border-radius: 5px;
-	background-color: var(--background-secondary);
+	display: none;
 }
