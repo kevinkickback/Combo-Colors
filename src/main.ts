@@ -153,7 +153,7 @@ export default class comboColors extends Plugin {
 					codeblock.parentNode
 				) {
 					const button = element.createEl("button", {
-						text: "Icon Notation",
+						text: "Icon notation",
 						cls: "combo",
 					});
 					this.registerDomEvent(button, "click", this.toggleNotations);
@@ -318,9 +318,9 @@ export default class comboColors extends Plugin {
 
 		if (notations.length > 0 && button) {
 			button.textContent =
-				button.textContent === "Text Notation"
-					? "Icon Notation"
-					: "Text Notation";
+				button.textContent === "Text notation"
+					? "Icon notation"
+					: "Text notation";
 		}
 	};
 
