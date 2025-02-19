@@ -1,9 +1,14 @@
 # Combo Colors
 ![TXT Mode Sample](assets/header.png)<br>
-<a href="https://www.vecteezy.com/free-vector/paint-brush">Paint Brush Vectors by Vecteezy</a>
 
 ## Installation
 
+### Community Plugins (Recommended)
+**1.** Go to Settings > Community Plugins > Browse<br>
+**2.** Search for "Combo Colors"<br>
+**3.** Install then enable<br>
+
+### Manual Method
 **1.** Download the latest release from the <a href="https://github.com/kevinkickback/Combo-Colors/releases/">releases page</a><br>
 **2.** Extract the zip file into your Obsidian vault's `.obsidian/plugins/` folder<br>
 **3.** Enable the plugin in Obsidian's Community Plugins settings
