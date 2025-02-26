@@ -102,6 +102,8 @@ export const inputMap: InputMapType = {
 			DI: "Drive impact",
 			DR: "Drive rush",
 			VT: "V-trigger",
+			FA: "Focus attack",
+			PP: "Perfect parry",
 		},
 		colors: {
 			P: "#FF87D1", // pink
@@ -115,6 +117,8 @@ export const inputMap: InputMapType = {
 			DI: "#009E4E", // green
 			DR: "#009E4E", // green
 			VT: "#DE1616", // red
+			FA: "#E8982C", // orange
+			PP: "#1F8CCC", // blue
 		},
 	},
 };

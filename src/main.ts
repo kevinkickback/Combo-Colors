@@ -11,7 +11,6 @@ export default class comboColors extends Plugin {
 	styleElement: HTMLStyleElement;
 	settings: Settings;
 
-	// Track leaves that need rerendering after profile changes
 	private metadataChanged: Map<string, WorkspaceLeaf>;
 
 	async onload() {
@@ -145,7 +144,6 @@ export default class comboColors extends Plugin {
 			},
 		);
 
-		// Create button from 'comboButton' codeblock
 		this.registerMarkdownPostProcessor((element: HTMLElement) => {
 			for (const codeblock of element.querySelectorAll<HTMLElement>("code")) {
 				if (
@@ -175,7 +173,6 @@ export default class comboColors extends Plugin {
 					if (view.getMode() === "preview") {
 						view.previewMode.rerender(true);
 					} else if (view.getMode() === "source") {
-						// Queue source view for rerender when switching to preview
 						this.metadataChanged.set(file.path, leaf);
 					}
 				}
@@ -228,7 +225,6 @@ export default class comboColors extends Plugin {
 			}
 		}
 
-		// Add color rules using CSS custom properties
 		for (const [input, color] of Object.entries(profile.colors)) {
 			const className = `cc-${profileId}-${input}`;
 			sheet.insertRule(
@@ -236,7 +232,6 @@ export default class comboColors extends Plugin {
 			);
 		}
 
-		// Update existing elements to use new color classes
 		const elements =
 			this.app.workspace.containerEl.querySelectorAll<HTMLElement>(
 				`[data-profile-id="${profileId}"]`,
@@ -260,16 +255,17 @@ export default class comboColors extends Plugin {
 			if (
 				rule instanceof CSSStyleRule &&
 				(rule.selectorText === ".buttonIcon" ||
-					rule.selectorText === ".motionIcon")
+					rule.selectorText === ".motionIcon" ||
+					rule.selectorText === ".notation.imageMode")
 			) {
 				sheet.deleteRule(i);
 			}
 		}
 
 		const sizes = {
-			small: { button: "1.2rem", motion: "1.4rem" },
-			medium: { button: "1.4rem", motion: "1.6rem" },
-			large: { button: "1.6rem", motion: "1.8rem" },
+			small: { button: "1.2rem", motion: "1.4rem", font: "1rem" },
+			medium: { button: "1.4rem", motion: "1.6rem", font: "1.2rem" },
+			large: { button: "1.8rem", motion: "2.0rem", font: "1.4rem" },
 		};
 
 		const selectedSize = sizes[this.settings.iconSize];
@@ -278,6 +274,9 @@ export default class comboColors extends Plugin {
 		);
 		sheet.insertRule(
 			`.motionIcon { height: ${selectedSize.motion}; vertical-align: text-bottom; margin-left: -0.1rem; }`,
+		);
+		sheet.insertRule(
+			`.notation.imageMode { font-size: ${selectedSize.font}; }`,
 		);
 	}
 
@@ -299,7 +298,6 @@ export default class comboColors extends Plugin {
 			notation.toggleClass("imageMode", isImageMode);
 
 			if (isImageMode) {
-				// First convert all text nodes to spans
 				for (const node of Array.from(notation.childNodes)) {
 					if (node.nodeType === Node.TEXT_NODE && node.textContent?.trim()) {
 						const span = notation.createSpan({ text: node.textContent });
@@ -307,7 +305,6 @@ export default class comboColors extends Plugin {
 					}
 				}
 
-				// Then convert all spans to images
 				for (const span of notation.querySelectorAll<HTMLElement>("span")) {
 					this.convertTextToImages(span);
 				}
@@ -342,7 +339,7 @@ export default class comboColors extends Plugin {
 
 		while (pos < text.length) {
 			let matched = false;
-			// Skip motion inputs after 'x' to prevent matching in combinations (e.g., 5Cx4)
+			// Skip motion inputs after 'x' to prevent matching in combinations (e.g. 5Cx4)
 			const isAfterX = pos > 0 && text[pos - 1].toLowerCase() === "x";
 
 			for (const [regex, config] of motions) {
