@@ -12,6 +12,7 @@ export default class comboColors extends Plugin {
 	settings: Settings;
 
 	private metadataChanged: Map<string, WorkspaceLeaf>;
+	private mutationObserver: MutationObserver | null = null;
 
 	async onload() {
 		this.styleElement = createEl("style", { attr: { id: "dynamic-colors" } });
@@ -27,6 +28,9 @@ export default class comboColors extends Plugin {
 		}
 
 		this.updateIconSizes();
+
+		// Setup mutation observer to handle newly added DOM elements
+		this.setupMutationObserver();
 
 		// First processor: Convert =:notation:= syntax into spans
 		this.registerMarkdownPostProcessor((element: HTMLElement) => {
@@ -397,6 +401,8 @@ export default class comboColors extends Plugin {
 
 	onunload() {
 		this.styleElement?.remove();
+		// Clean up mutation observers
+		this.disconnectMutationObserver();
 	}
 
 	async loadSettings() {
@@ -405,5 +411,85 @@ export default class comboColors extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+	}
+
+	private setupMutationObserver() {
+		this.mutationObserver = new MutationObserver((mutations) => {
+			for (const mutation of mutations) {
+				if (mutation.type === "childList" && mutation.addedNodes.length > 0) {
+					// Check if we're in image mode by looking for notation elements with imageMode class
+					const isImageMode = !!this.app.workspace.containerEl.querySelector(
+						".notation.imageMode",
+					);
+
+					if (isImageMode) {
+						for (const node of mutation.addedNodes) {
+							if (node instanceof HTMLElement) {
+								// Process any notation elements in the new content
+								const notations = node.querySelectorAll(".notation");
+								for (const notation of notations) {
+									if (
+										notation instanceof HTMLElement &&
+										!notation.hasClass("imageMode")
+									) {
+										// Cache text content for toggling back to text mode
+										notation.dataset.textMode ||= notation.textContent || "";
+										notation.addClass("imageMode");
+
+										for (const node of Array.from(notation.childNodes)) {
+											if (
+												node.nodeType === Node.TEXT_NODE &&
+												node.textContent?.trim()
+											) {
+												const span = notation.createSpan({
+													text: node.textContent,
+												});
+												node.parentNode?.replaceChild(span, node);
+											}
+										}
+
+										for (const span of notation.querySelectorAll<HTMLElement>(
+											"span",
+										)) {
+											this.convertTextToImages(span);
+										}
+									}
+								}
+
+								// Also convert any spans in existing notations that might have been added
+								const existingNotations = node.querySelectorAll<HTMLElement>(
+									".notation.imageMode",
+								);
+								for (const notation of existingNotations) {
+									for (const span of notation.querySelectorAll<HTMLElement>(
+										"span:not(:has(svg))",
+									)) {
+										if (
+											span.textContent?.trim() &&
+											!span.querySelector("svg")
+										) {
+											this.convertTextToImages(span);
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		});
+
+		// Observe the entire document for changes
+		this.mutationObserver.observe(document.body, {
+			childList: true,
+			subtree: true,
+		});
+	}
+
+	private disconnectMutationObserver() {
+		if (this.mutationObserver) {
+			this.mutationObserver.disconnect();
+			this.mutationObserver = null;
+		}
 	}
 }

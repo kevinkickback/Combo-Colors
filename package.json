@@ -1,6 +1,6 @@
 {
 	"name": "combo-colors",
-	"version": "1.2.0",
+	"version": "1.2.1",
 	"description": "Automatically apply color to fighting game combo notation.",
 	"main": "main.js",
 	"scripts": {

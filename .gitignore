@@ -12,7 +12,7 @@ node_modules
 # Don't include the compiled files in the repo.
 # They should be uploaded to GitHub releases instead.
 icons
-/styles.css
+styles.css
 main.js
 
 # Exclude sourcemaps
