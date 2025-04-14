@@ -12,9 +12,9 @@
 	"author": "",
 	"license": "MIT",
 	"devDependencies": {
-		"@types/node": "^22.14.0",
-		"@typescript-eslint/eslint-plugin": "8.29.0",
-		"@typescript-eslint/parser": "8.29.0",
+		"@types/node": "^22.14.1",
+		"@typescript-eslint/eslint-plugin": "8.29.1",
+		"@typescript-eslint/parser": "8.29.1",
 		"builtin-modules": "5.0.0",
 		"esbuild": "0.25.2",
 		"obsidian": "latest",
