@@ -54,7 +54,7 @@
 }
 
 .motionIcon[alt="Down"] + .motionIcon[alt="Down"] {
-	margin-left: -.5rem;
+	margin-left: -0.5rem;
 }
 
 .motionIcon[alt="QCB"] + .motionIcon[alt="QCB"] {
@@ -111,29 +111,20 @@ button.combo {
 	cursor: pointer;
 	font-weight: bold;
 	color: var(--color);
-	background: linear-gradient(to bottom left, var(--color) 50%, #0000 50.1%) top
-		right, linear-gradient(to top right, var(--color) 50%, #0000 50.1%) bottom
-		left;
+	background: linear-gradient(to bottom left, var(--color) 50%, #00000000 50.1%)
+		top right, linear-gradient(to top right, var(--color) 50%, #00000000 50.1%)
+		bottom left;
 	background-size: calc(var(--slant) + 1.3 * var(--border))
 		calc(var(--slant) + 1.3 * var(--border));
 	background-repeat: no-repeat;
-	box-shadow: 0 0 0 200px inset var(--s, #0000), 0 0 0 var(--border) inset
+	box-shadow: 0 0 0 200px inset var(--s, #00000000), 0 0 0 var(--border) inset
 		var(--color);
-	clip-path: polygon(
-		0 0,
-		calc(100% - var(--slant)) 0,
-		100% var(--slant),
-		100% 100%,
-		var(--slant) 100%,
-		0 calc(100% - var(--slant))
-	);
 	transition: color var(--t, 0.3s), background-size 0.3s;
 }
 
 button.combo:focus-visible {
 	outline-offset: calc(-1 * var(--border));
-	outline: var(--border) solid #000c;
-	clip-path: none;
+	outline: var(--border) solid #000000cc;
 	background-size: 0 0;
 }
 
@@ -145,7 +136,7 @@ button.combo:active {
 }
 
 button.combo:active {
-	--s: #0005;
+	--s: #00000055;
 	transition: none;
 }
 
@@ -154,7 +145,7 @@ button.combo:active {
 		float: none;
 		display: flex;
 		justify-content: center;
-		margin-top: 0px !important;
+		margin-top: 0;
 	}
 }
 
@@ -168,19 +159,9 @@ button.combo:active {
 	line-height: var(--line-height-tight);
 }
 
-.setting-item:is(:has(+ .setting-item-description-custom)) {
-	padding-bottom: 0;
-}
-
 .hlt-interaction {
 	color: var(--text-accent);
 	cursor: pointer;
-}
-
-@media screen and (max-width: 500px) {
-	.setting-item:is(:has(+ .setting-item-description-custom)) {
-		padding-bottom: 1rem !important;
-	}
 }
 
 .custom-profile-row {
