@@ -1,6 +1,12 @@
 # Combo Colors
 ![TXT Mode Sample](assets/header.png)<br>
 
+<p align="center">
+  <em>
+    If you like this plugin check out the <a href="https://github.com/kevinkickback/notation.LABS">standalone app</a> with even more features!
+  </em>
+</p>
+
 ## Installation
 
 ### Community Plugins (Recommended)
