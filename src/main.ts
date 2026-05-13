@@ -4,14 +4,8 @@ import {
   Plugin,
   type WorkspaceLeaf,
 } from 'obsidian'
-import { tokensToColorSegments, tokensToImageSegments } from './adapter'
-import { parseNotation } from './parser'
-import { type CustomProfile, DEFAULT_SETTINGS, type Settings, settingsTab } from './settings'
-
-interface NotationRenderState {
-  profileId: string
-  textMode: string
-}
+import { NotationRenderer } from './notation-renderer'
+import { DEFAULT_SETTINGS, type Settings, settingsTab } from './settings'
 
 interface ProfileInputEdit {
   name: string
@@ -25,7 +19,7 @@ export default class comboColors extends Plugin {
 
   private metadataChanged!: Map<string, WorkspaceLeaf>
   private mutationObserver: MutationObserver | null = null
-  private notationState = new WeakMap<HTMLElement, NotationRenderState>()
+  private notationRenderer = new NotationRenderer()
 
   async onload() {
     const workspaceDocument = this.app.workspace.containerEl.ownerDocument
@@ -100,7 +94,14 @@ export default class comboColors extends Plugin {
             continue
           }
 
-          this.applyColorsWithParser(element, notation, profileId, profile, textMode)
+          this.notationRenderer.applyTextMode(
+            element,
+            notation,
+            profileId,
+            profile,
+            textMode,
+            this.settings.naturalLanguageNotation,
+          )
         }
       },
     )
@@ -232,100 +233,13 @@ export default class comboColors extends Plugin {
     sheet.insertRule(`.notation.imageMode { font-size: ${selectedSize.font}; }`)
   }
 
-  private applyColorsWithParser(
-    element: HTMLElement,
-    notation: HTMLElement,
-    profileId: string,
-    profile: CustomProfile,
-    textMode: string,
-  ) {
-    const tokens = parseNotation(textMode, {
-      buttonInputs: Object.keys(profile.colors),
-    })
-    const segments = tokensToColorSegments(tokens, profile)
-    this.notationState.set(notation, {
-      profileId,
-      textMode,
-    })
-
-    notation.empty()
-    const fragment = createFragment()
-
-    for (const segment of segments) {
-      if (segment.kind === 'plain') {
-        fragment.appendText(segment.text)
-      } else if (segment.kind === 'colored') {
-        fragment.append(
-          element.createSpan({
-            cls: `cc-${profileId}-${segment.input} cc-profile-color`,
-            text: segment.rawText,
-            attr: {
-              'data-color-input': segment.input,
-              'data-profile-id': profileId,
-            },
-          }),
-        )
-      }
-    }
-
-    notation.append(fragment)
-  }
-
   private renderNotationAsImages(notation: HTMLElement) {
-    const state = this.notationState.get(notation)
-    if (!state) return
-
-    const profileId = state.profileId
-    if (!profileId || !this.settings.profiles[profileId]) return
-    const profile = this.settings.profiles[profileId]
-
-    const originalText = state.textMode
-
-    const buttonColorMap = new Map<string, string>()
-    for (const span of notation.querySelectorAll('span.cc-profile-color')) {
-      const input = span.getAttribute('data-color-input')
-      const cls = span.className
-      if (input && cls) {
-        buttonColorMap.set(input, cls)
-      }
-    }
-
-    const tokens = parseNotation(originalText, {
-      buttonInputs: Object.keys(profile.desc),
-    })
-    const segments = tokensToImageSegments(tokens, profile)
-
-    notation.empty()
-    const fragment = createFragment()
-
-    for (const segment of segments) {
-      if (segment.kind === 'plain') {
-        fragment.appendText(segment.text)
-        continue
-      }
-
-      const element = this.createSvgElement(notation, {
-        source: segment.source,
-        class: segment.cssClass,
-        alt: segment.alt,
-      })
-
-      if (!element) continue
-
-      if (segment.cssClass === 'buttonIcon') {
-        const colorClass = buttonColorMap.get(segment.alt)
-        if (colorClass) {
-          element.setAttr('class', `buttonIcon ${colorClass}`)
-        }
-      }
-
-      const repeat = segment.repeat ?? 1
-      for (let i = 0; i < repeat; i++) {
-        fragment.append(i === 0 ? element : element.cloneNode(true))
-      }
-    }
-
-    notation.append(fragment)
+    this.notationRenderer.renderImageMode(
+      notation,
+      this.settings.profiles,
+      this.createSvgElement,
+      this.settings.naturalLanguageNotation,
+    )
   }
 
   private toggleNotations = () => {
@@ -339,11 +253,11 @@ export default class comboColors extends Plugin {
       if (notation.textContent === '[ No notation profile in frontmatter ]') continue
 
       // Cache text content for toggling back to text mode
-      if (!this.notationState.has(notation)) {
+      if (!this.notationRenderer.hasState(notation)) {
         const profileSpan = notation.querySelector<HTMLElement>('[data-profile-id]')
         const profileId = profileSpan?.getAttribute('data-profile-id')
         if (profileId) {
-          this.notationState.set(notation, {
+          this.notationRenderer.ensureState(notation, {
             profileId,
             textMode: notation.textContent || '',
           })
@@ -461,12 +375,12 @@ export default class comboColors extends Plugin {
                 for (const notation of notations) {
                   if (this.isHtmlElement(notation) && !notation.hasClass('imageMode')) {
                     // Cache text content for toggling back to text mode
-                    if (!this.notationState.has(notation)) {
+                    if (!this.notationRenderer.hasState(notation)) {
                       const profileId = notation
                         .querySelector<HTMLElement>('[data-profile-id]')
                         ?.getAttribute('data-profile-id')
                       if (profileId) {
-                        this.notationState.set(notation, {
+                        this.notationRenderer.ensureState(notation, {
                           profileId,
                           textMode: notation.textContent || '',
                         })

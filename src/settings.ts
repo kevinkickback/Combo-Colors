@@ -15,6 +15,8 @@ export interface Settings {
   selectedProfile: string
   profiles: Record<string, CustomProfile>
   iconSize: 'small' | 'medium' | 'large'
+  naturalLanguageNotation: boolean
+  notationColorSettingsExpanded: boolean
 }
 
 export type InputMapType = Record<string, CustomProfile>
@@ -127,6 +129,8 @@ export const DEFAULT_SETTINGS: Settings = {
   selectedProfile: 'asw',
   profiles: { ...inputMap },
   iconSize: 'medium',
+  naturalLanguageNotation: false,
+  notationColorSettingsExpanded: true,
 }
 
 export class settingsTab extends PluginSettingTab {
@@ -234,12 +238,38 @@ export class settingsTab extends PluginSettingTab {
       })
 
     new Setting(containerEl)
+      .setName('Allow natural language')
+      .setDesc(
+        'Use full-text phrases like "quarter circle forward" (Does NOT disable shorthand notation)',
+      )
+      .addToggle((toggle) => {
+        toggle.setValue(this.plugin.settings.naturalLanguageNotation).onChange(async (value) => {
+          this.plugin.settings.naturalLanguageNotation = value
+          await this.plugin.saveSettings()
+          this.plugin.rerenderPreviewViews()
+        })
+      })
+
+    new Setting(containerEl)
       .setName('Color settings')
       .setDesc('Customize the colors for notation text and icons')
+      .addButton((button) => {
+        const isExpanded = this.plugin.settings.notationColorSettingsExpanded
+        return button
+          .setIcon(isExpanded ? 'chevron-down' : 'chevron-right')
+          .setTooltip(isExpanded ? 'Collapse color settings' : 'Expand color settings')
+          .onClick(async () => {
+            this.plugin.settings.notationColorSettingsExpanded = !isExpanded
+            await this.plugin.saveSettings()
+            this.display()
+          })
+      })
 
-    const colorSection = containerEl.createDiv({
-      cls: 'color-settings-container',
-    })
+    if (!this.plugin.settings.notationColorSettingsExpanded) {
+      return
+    }
+
+    const colorSection = containerEl.createDiv({ cls: 'color-settings-container' })
 
     new Setting(colorSection)
       .setName('Text color')

@@ -1,3 +1,5 @@
+import { DIRECTION_DEFINITIONS, MODIFIER_DEFINITIONS, MOTION_DEFINITIONS } from './notation-schema'
+
 export type ParserTokenType =
   | 'direction'
   | 'motion'
@@ -19,84 +21,36 @@ export interface ParserToken {
 
 export interface ParserOptions {
   buttonInputs?: string[]
-}
-
-interface DirectionDefinition {
-  value: string
-  aliases: string[]
-}
-
-interface MotionDefinition {
-  value: string
-  aliases: string[]
-}
-
-interface ModifierDefinition {
-  value: string
-  aliases: string[]
+  allowNaturalLanguageNotation?: boolean
 }
 
 const WORD_CHAR = /[A-Za-z0-9_]/
 const DIGIT_OR_DOT = /[0-9.]/
 
-const DIRECTION_DEFINITIONS: DirectionDefinition[] = [
-  { value: 'down-back', aliases: ['db', '1'] },
-  { value: 'down', aliases: ['cr', '2'] },
-  { value: 'down-forward', aliases: ['df', '3'] },
-  { value: 'back', aliases: ['b', '4'] },
-  { value: 'neutral', aliases: ['st', '5'] },
-  { value: 'forward', aliases: ['f', '6'] },
-  { value: 'up-back', aliases: ['ub', '7'] },
-  { value: 'up', aliases: ['u', '8'] },
-  { value: 'up-forward', aliases: ['uf', '9'] },
-]
-
-const MOTION_DEFINITIONS: MotionDefinition[] = [
-  { value: 'double-qcf', aliases: ['2qcf', '236236'] },
-  { value: 'double-qcb', aliases: ['2qcb', '214214'] },
-  { value: 'hcfb', aliases: ['hcfb', '412364'] },
-  { value: 'hcbf', aliases: ['hcbf', '632146'] },
-  { value: 'qcf', aliases: ['qcf', '236'] },
-  { value: 'qcb', aliases: ['qcb', '214'] },
-  { value: 'dp', aliases: ['dp', '623'] },
-  { value: 'rdp', aliases: ['rdp', '421'] },
-  { value: 'hcf', aliases: ['hcf', '41236'] },
-  { value: 'hcb', aliases: ['hcb', '63214'] },
-  { value: 'dash-back', aliases: ['back dash', '44'] },
-  { value: 'dash-forward', aliases: ['dash', '66'] },
-  { value: 'double-down', aliases: ['dd', '22'] },
-  { value: 'double-up', aliases: ['uu', '88'] },
-]
-
-const MODIFIER_DEFINITIONS: ModifierDefinition[] = [
-  { value: 'j.', aliases: ['j.'] },
-  { value: 'dj.', aliases: ['dj.'] },
-  { value: 'sj.', aliases: ['sj.'] },
-  { value: 'jc.', aliases: ['jc.'] },
-  { value: 'sjc.', aliases: ['sjc.'] },
-  { value: 'dl.', aliases: ['dl.'] },
-  { value: 'cl.', aliases: ['cl.'] },
-  { value: 'f.', aliases: ['f.'] },
-  { value: 'dd.', aliases: ['dd.'] },
-  { value: 'ch', aliases: ['ch'] },
-  { value: 'whiff', aliases: ['whiff'] },
-]
 // Separators mark transitions between distinct actions (chain, link, land, etc.)
 const SEPARATORS = new Set([',', '>', '|>'])
 // Joiners bind elements into a single combined input (qcf.LP, 6A+B, 236A~A)
 const JOINERS = new Set(['.', '+', '~'])
 
-const motionAliases = createSortedAliasEntries(MOTION_DEFINITIONS)
-const directionAliases = createSortedAliasEntries(DIRECTION_DEFINITIONS)
-const modifierAliases = createSortedAliasEntries(MODIFIER_DEFINITIONS)
-
-function createSortedAliasEntries<T extends { value: string; aliases: string[] }>(
-  definitions: T[],
+function createSortedAliasEntries<
+  T extends {
+    value: string
+    aliases: readonly string[]
+    naturalLanguageAliases?: readonly string[]
+  },
+>(
+  definitions: readonly T[],
+  includeNaturalLanguageAliases: boolean,
 ): Array<{ alias: string; value: string }> {
   return definitions
-    .flatMap((definition) =>
-      definition.aliases.map((alias) => ({ alias: alias.toLowerCase(), value: definition.value })),
-    )
+    .flatMap((definition) => {
+      const aliases = [...definition.aliases]
+      if (includeNaturalLanguageAliases && 'naturalLanguageAliases' in definition) {
+        aliases.push(...(definition.naturalLanguageAliases ?? []))
+      }
+
+      return aliases.map((alias) => ({ alias: alias.toLowerCase(), value: definition.value }))
+    })
     .sort((left, right) => right.alias.length - left.alias.length)
 }
 
@@ -295,8 +249,9 @@ function consumeButton(
 function consumeModifier(
   input: string,
   index: number,
+  aliases: Array<{ alias: string; value: string }>,
 ): { token: ParserToken; length: number } | null {
-  for (const aliasEntry of modifierAliases) {
+  for (const aliasEntry of aliases) {
     const alias = aliasEntry.alias
     if (!input.toLowerCase().startsWith(alias, index)) continue
     if (!hasAliasBoundary(input, index, alias.length, alias)) continue
@@ -316,9 +271,23 @@ function consumeModifier(
 export function parseNotation(input: string, options: ParserOptions = {}): ParserToken[] {
   const tokens: ParserToken[] = []
   const buttonInputs = options.buttonInputs ?? []
+  const allowNaturalLanguageNotation = options.allowNaturalLanguageNotation ?? false
   const buttonInputSet = new Set(buttonInputs)
   const sortedButtonInputs = [...buttonInputs].sort((left, right) => right.length - left.length)
   const inputLower = input.toLowerCase()
+
+  const motionAliasEntries = createSortedAliasEntries(
+    MOTION_DEFINITIONS,
+    allowNaturalLanguageNotation,
+  )
+  const directionAliasEntries = createSortedAliasEntries(
+    DIRECTION_DEFINITIONS,
+    allowNaturalLanguageNotation,
+  )
+  const modifierAliasEntries = createSortedAliasEntries(
+    MODIFIER_DEFINITIONS,
+    allowNaturalLanguageNotation,
+  )
 
   let index = 0
   while (index < input.length) {
@@ -379,14 +348,14 @@ export function parseNotation(input: string, options: ParserOptions = {}): Parse
       continue
     }
 
-    const modifier = consumeModifier(input, index)
+    const modifier = consumeModifier(input, index, modifierAliasEntries)
     if (modifier) {
       tokens.push(modifier.token)
       index += modifier.length
       continue
     }
 
-    const motion = consumeAlias(inputLower, input, index, motionAliases, 'motion')
+    const motion = consumeAlias(inputLower, input, index, motionAliasEntries, 'motion')
     if (motion) {
       tokens.push(motion.token)
       index += motion.length
@@ -402,7 +371,7 @@ export function parseNotation(input: string, options: ParserOptions = {}): Parse
       continue
     }
 
-    const direction = consumeAlias(inputLower, input, index, directionAliases, 'direction')
+    const direction = consumeAlias(inputLower, input, index, directionAliasEntries, 'direction')
     if (direction) {
       tokens.push(direction.token)
       index += direction.length

@@ -50,14 +50,6 @@ export function tokensToColorSegments(
 ): RenderSegment[] {
   const knownInputs = new Set(Object.keys(profile.colors))
 
-  // First pass: identify which buttons will be colored
-  const buttonsByIndex = new Map<number, string>()
-  for (let i = 0; i < tokens.length; i++) {
-    if (tokens[i].type === 'button' && knownInputs.has(tokens[i].value)) {
-      buttonsByIndex.set(i, tokens[i].value)
-    }
-  }
-
   // Second pass: generate segments, coloring motions/directions with following button color
   return tokens.map((token, index): RenderSegment => {
     // Button tokens are always colored if in profile
@@ -67,8 +59,9 @@ export function tokensToColorSegments(
 
     // Motion, direction, modifier, and joiner tokens all inherit color from the following button.
     // Joiners (. + ~) and modifiers (j. dj. etc.) are transparent in the look-ahead chain.
+    // Space separators are also transparent to support phrases like "quarter circle forward LP".
     // Modifiers and joiners can also pass through motion/direction tokens to find a button.
-    // Separators (, > |> and spaces) always break the chain.
+    // Non-space separators (, > |>) break the chain.
     if (
       (token.type === 'motion' ||
         token.type === 'direction' ||
@@ -76,14 +69,17 @@ export function tokensToColorSegments(
         token.type === 'joiner') &&
       index < tokens.length - 1
     ) {
-      // Look ahead for the next button, stopping at separators
+      // Look ahead for the next button, stopping at non-space separators
       for (let i = index + 1; i < tokens.length; i++) {
         // Joiners and modifiers are transparent — skip past them
         if (tokens[i].type === 'joiner' || tokens[i].type === 'modifier') {
           continue
         }
-        // Separators (and spaces) break the chain
+        // Spaces are transparent; action separators break the chain.
         if (tokens[i].type === 'separator') {
+          if (tokens[i].rawValue === ' ') {
+            continue
+          }
           break
         }
         if (tokens[i].type === 'button' && knownInputs.has(tokens[i].value)) {

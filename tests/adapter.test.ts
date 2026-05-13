@@ -25,6 +25,30 @@ const trdProfile: CustomProfile = {
 // ---------------------------------------------------------------------------
 
 describe('tokensToColorSegments', () => {
+  it('lets full-text motion inherit button color across spaces', () => {
+    const tokens = parseNotation('quarter circle forward LP', {
+      buttonInputs: ['LP'],
+      allowNaturalLanguageNotation: true,
+    })
+    const segments = tokensToColorSegments(tokens, trdProfile)
+
+    const colored = segments.filter((s) => s.kind === 'colored')
+    expect(colored).toHaveLength(2)
+    expect(colored.map((s) => (s as { input: string }).input)).toEqual(['LP', 'LP'])
+  })
+
+  it('lets full-text modifier phrases inherit button color across spaces', () => {
+    const tokens = parseNotation('super jump LP', {
+      buttonInputs: ['LP'],
+      allowNaturalLanguageNotation: true,
+    })
+    const segments = tokensToColorSegments(tokens, trdProfile)
+
+    const colored = segments.filter((s) => s.kind === 'colored')
+    expect(colored).toHaveLength(2)
+    expect(colored.map((s) => (s as { input: string }).input)).toEqual(['LP', 'LP'])
+  })
+
   it('maps profile button tokens to colored segments', () => {
     const tokens = parseNotation('2A > 5B', { buttonInputs: ['A', 'B'] })
     const segments = tokensToColorSegments(tokens, aswProfile)
@@ -226,8 +250,8 @@ describe('Parser + Adapter integration', () => {
     const coloredCount = segments.filter((s) => s.kind === 'colored').length
     const plainCount = segments.filter((s) => s.kind === 'plain').length
 
-    // Should have 2 colored (A, B) and at least 1 plain (separator)
-    expect(coloredCount).toBe(2)
+    // A, '.', and B all inherit/use button color when separated only by spaces.
+    expect(coloredCount).toBe(3)
     expect(plainCount).toBeGreaterThan(0)
   })
 
@@ -269,8 +293,8 @@ describe('Parser + Adapter integration', () => {
       .filter((s) => s.kind === 'colored')
       .map((s) => (s as { input: string }).input)
 
-    // Should have 2 colored buttons (A, A) and direction 'b' as plain
-    expect(coloredInputs).toEqual(['A', 'A'])
+    // The middle direction token inherits color from the following A across spaces.
+    expect(coloredInputs).toEqual(['A', 'A', 'A'])
   })
 
   it('allows modifiers to inherit color through a direction token', () => {
@@ -354,22 +378,10 @@ describe('Parser + Adapter integration', () => {
     const notation = '22B (feint) > 5[C] , 214Bx5 |> 236A(3)'
     const tokens = parseNotation(notation, { buttonInputs: ['B', 'C', 'A'] })
 
-    // DEBUG: Log all tokens to verify parser is correct
-    console.log('=== DEBUG: User notation tokens ===')
-    for (const token of tokens) {
-      console.log(
-        `${token.type.padEnd(15)} | value: ${token.value.padEnd(15)} | raw: ${token.rawValue}`,
-      )
-    }
-
     const segments = tokensToImageSegments(tokens, aswProfile)
 
     // Extract SVG segments with their alt values
     const svgAlts = segments.filter((s) => s.kind === 'svg').map((s) => s.alt)
-
-    // DEBUG: Log SVG segments
-    console.log('=== DEBUG: SVG segments ===')
-    console.log('SVG alts:', svgAlts)
 
     // Verify no extra Forward or DownForward icons from comments/isolated digits
     // We expect: DoublDown, B, Neutral, C, DoublQCB, B, QCF, A

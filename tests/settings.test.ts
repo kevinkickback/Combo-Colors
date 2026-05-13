@@ -5,6 +5,7 @@ describe('settings defaults', () => {
   it('uses expected default selected profile and icon size', () => {
     expect(DEFAULT_SETTINGS.selectedProfile).toBe('asw')
     expect(DEFAULT_SETTINGS.iconSize).toBe('medium')
+    expect(DEFAULT_SETTINGS.naturalLanguageNotation).toBe(false)
   })
 
   it('includes built-in profile ids', () => {

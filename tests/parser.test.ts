@@ -34,6 +34,121 @@ describe('parseNotation', () => {
     ])
   })
 
+  it('parses full-text motion and direction aliases', () => {
+    const tokens = parseNotation('Quarter Circle Forward LP > down forward LK', {
+      buttonInputs: ['LP', 'LK'],
+      allowNaturalLanguageNotation: true,
+    })
+
+    expect(tokens).toEqual([
+      {
+        type: 'motion',
+        value: 'qcf',
+        rawValue: 'Quarter Circle Forward',
+      },
+      { type: 'separator', value: ' ', rawValue: ' ' },
+      { type: 'button', value: 'LP', rawValue: 'LP' },
+      { type: 'separator', value: ' ', rawValue: ' ' },
+      { type: 'separator', value: '>', rawValue: '>' },
+      { type: 'separator', value: ' ', rawValue: ' ' },
+      {
+        type: 'direction',
+        value: 'down-forward',
+        rawValue: 'down forward',
+      },
+      { type: 'separator', value: ' ', rawValue: ' ' },
+      { type: 'button', value: 'LK', rawValue: 'LK' },
+    ])
+  })
+
+  it('parses additional full-text aliases for motions and directions', () => {
+    const tokens = parseNotation('dragon punch HP, crouch LP', {
+      buttonInputs: ['HP', 'LP'],
+      allowNaturalLanguageNotation: true,
+    })
+
+    expect(tokens).toEqual([
+      { type: 'motion', value: 'dp', rawValue: 'dragon punch' },
+      { type: 'separator', value: ' ', rawValue: ' ' },
+      { type: 'button', value: 'HP', rawValue: 'HP' },
+      { type: 'separator', value: ',', rawValue: ',' },
+      { type: 'separator', value: ' ', rawValue: ' ' },
+      { type: 'direction', value: 'down', rawValue: 'crouch' },
+      { type: 'separator', value: ' ', rawValue: ' ' },
+      { type: 'button', value: 'LP', rawValue: 'LP' },
+    ])
+  })
+
+  it('parses full-text modifier phrases', () => {
+    const tokens = parseNotation('super jump LP > jump cancel LK, double down HP', {
+      buttonInputs: ['LP', 'LK', 'HP'],
+      allowNaturalLanguageNotation: true,
+    })
+
+    expect(tokens).toEqual([
+      { type: 'modifier', value: 'sj.', rawValue: 'super jump' },
+      { type: 'separator', value: ' ', rawValue: ' ' },
+      { type: 'button', value: 'LP', rawValue: 'LP' },
+      { type: 'separator', value: ' ', rawValue: ' ' },
+      { type: 'separator', value: '>', rawValue: '>' },
+      { type: 'separator', value: ' ', rawValue: ' ' },
+      { type: 'modifier', value: 'jc.', rawValue: 'jump cancel' },
+      { type: 'separator', value: ' ', rawValue: ' ' },
+      { type: 'button', value: 'LK', rawValue: 'LK' },
+      { type: 'separator', value: ',', rawValue: ',' },
+      { type: 'separator', value: ' ', rawValue: ' ' },
+      { type: 'modifier', value: 'dd.', rawValue: 'double down' },
+      { type: 'separator', value: ' ', rawValue: ' ' },
+      { type: 'button', value: 'HP', rawValue: 'HP' },
+    ])
+  })
+
+  it('parses -ing natural language movement phrases', () => {
+    const tokens = parseNotation(
+      'jumping LP > crouching LK, standing HP, dashing A, backdashing B',
+      {
+        buttonInputs: ['LP', 'LK', 'HP', 'A', 'B'],
+        allowNaturalLanguageNotation: true,
+      },
+    )
+
+    expect(tokens).toEqual([
+      { type: 'modifier', value: 'j.', rawValue: 'jumping' },
+      { type: 'separator', value: ' ', rawValue: ' ' },
+      { type: 'button', value: 'LP', rawValue: 'LP' },
+      { type: 'separator', value: ' ', rawValue: ' ' },
+      { type: 'separator', value: '>', rawValue: '>' },
+      { type: 'separator', value: ' ', rawValue: ' ' },
+      { type: 'direction', value: 'down', rawValue: 'crouching' },
+      { type: 'separator', value: ' ', rawValue: ' ' },
+      { type: 'button', value: 'LK', rawValue: 'LK' },
+      { type: 'separator', value: ',', rawValue: ',' },
+      { type: 'separator', value: ' ', rawValue: ' ' },
+      { type: 'direction', value: 'neutral', rawValue: 'standing' },
+      { type: 'separator', value: ' ', rawValue: ' ' },
+      { type: 'button', value: 'HP', rawValue: 'HP' },
+      { type: 'separator', value: ',', rawValue: ',' },
+      { type: 'separator', value: ' ', rawValue: ' ' },
+      { type: 'motion', value: 'dash-forward', rawValue: 'dashing' },
+      { type: 'separator', value: ' ', rawValue: ' ' },
+      { type: 'button', value: 'A', rawValue: 'A' },
+      { type: 'separator', value: ',', rawValue: ',' },
+      { type: 'separator', value: ' ', rawValue: ' ' },
+      { type: 'motion', value: 'dash-back', rawValue: 'backdashing' },
+      { type: 'separator', value: ' ', rawValue: ' ' },
+      { type: 'button', value: 'B', rawValue: 'B' },
+    ])
+  })
+
+  it('does not match full-text phrases when natural language notation is disabled', () => {
+    const tokens = parseNotation('quarter circle forward LP', {
+      buttonInputs: ['LP'],
+    })
+
+    expect(tokens.some((token) => token.type === 'motion' && token.value === 'qcf')).toBe(false)
+    expect(tokens.some((token) => token.type === 'unknown' && token.value === 'q')).toBe(true)
+  })
+
   it('parses buttons from custom profile inputs', () => {
     const tokens = parseNotation('2LP + [A] > K', {
       buttonInputs: ['LP', 'A', 'K'],

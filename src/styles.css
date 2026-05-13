@@ -198,7 +198,7 @@ button.combo:active {
 }
 
 .color-settings-container {
-	padding: 0.75em;
+	padding: 0.5em 0.5em 0.75em;
 	margin-top: 0.5em;
 	border-radius: 5px;
 	background-color: var(--background-secondary);
