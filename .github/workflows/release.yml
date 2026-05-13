@@ -46,6 +46,20 @@ jobs:
             exit 1
           fi
 
+      - name: Package manual install zip
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          STAGE_DIR="combo-colors"
+          ZIP_NAME="combo-colors-${TAG}.zip"
+
+          rm -rf "$STAGE_DIR"
+          mkdir -p "$STAGE_DIR"
+          cp main.js "$STAGE_DIR/"
+          cp manifest.json "$STAGE_DIR/"
+          cp styles.css "$STAGE_DIR/"
+
+          zip -r "$ZIP_NAME" "$STAGE_DIR"
+
       - name: Create draft release
         uses: softprops/action-gh-release@v2
         with:
@@ -56,3 +70,4 @@ jobs:
             main.js
             manifest.json
             styles.css
+            combo-colors-${{ github.ref_name }}.zip
