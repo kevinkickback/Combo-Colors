@@ -88,8 +88,6 @@
 Combo Colors is intended to be used with reading view. Live preview is not supported.
 
 ## Migration checkpoint note
-This branch currently includes both rendering implementations:
-- parser-based rendering (default/recommended)
-- legacy regex-based rendering (kept temporarily for parity testing)
+Commit `4293a2e` on this branch is the parser-migration checkpoint that still contains both rendering implementations (parser + legacy regex).
 
-The legacy regex path is intended for removal after this checkpoint.
+Current head removes the legacy regex runtime path and uses parser-based rendering only.

@@ -15,7 +15,6 @@ interface ButtonConfig {
 
 type MotionMap = Map<RegExp, MotionConfig>
 type ButtonMap = Map<RegExp, ButtonConfig>
-type ColorMap = Map<RegExp, string>
 
 // Base motion inputs with SVG data
 export const motionMap = (): MotionMap =>
@@ -247,15 +246,6 @@ export const generateButtonMap = (profile: CustomProfile): ButtonMap => {
   return buttonMap
 }
 
-// Combine motion and button inputs for image processing
-export const imageMap = (profile: CustomProfile): MotionMap => {
-  const combinedMap = new Map([...motionMap()])
-  for (const [pattern, config] of generateButtonMap(profile)) {
-    combinedMap.set(pattern, config)
-  }
-  return combinedMap
-}
-
 // Returns motion and direction SVG configs keyed by canonical parser value (e.g. 'qcf', 'down').
 // Used by the parser adapter to look up SVG configs without re-running regex patterns.
 export const canonicalMotionMap = (): Map<string, MotionConfig> => {
@@ -302,15 +292,4 @@ export const canonicalMotionMap = (): Map<string, MotionConfig> => {
   }
 
   return result
-}
-
-// Generate color patterns for text processing
-export const colorPatterns = (profile: CustomProfile): ColorMap => {
-  const patterns = new Map()
-  for (const input in profile.colors) {
-    if (!Object.prototype.hasOwnProperty.call(profile.colors, input)) continue
-    const pattern = `(?:\\d*[a-z]*\\.\\d*|\\d+[a-z]*|[+~]|(?:\\b|\\W))(?:\\[${input}\\]|${input})(?:\\(\\d+\\))?(?=\\s|\\b|$|~|,)`
-    patterns.set(new RegExp(pattern, 'g'), input)
-  }
-  return patterns
 }
