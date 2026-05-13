@@ -21,11 +21,10 @@ describe('patterns', () => {
 
     expect(map.size).toBe(Object.keys(testProfile.colors).length)
 
-    const entries = Array.from(map.entries())
-    const lpEntry = entries.find(([, config]) => config.alt === 'LP')
+    const lpEntry = map.get('LP')
     expect(lpEntry).toBeTruthy()
-    expect(lpEntry?.[0].test('LP')).toBe(true)
-    expect(lpEntry?.[0].test('LP:')).toBe(false)
+    expect(lpEntry?.alt).toBe('LP')
+    expect(lpEntry?.class).toBe('buttonIcon')
   })
 
   it('creates canonical motion lookup for parser tokens', () => {

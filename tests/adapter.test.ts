@@ -169,7 +169,7 @@ describe('tokensToImageSegments', () => {
     const segments = tokensToImageSegments(tokens, profile)
 
     const svgAlts = segments.filter((s) => s.kind === 'svg').map((s) => (s as { alt: string }).alt)
-    // '5' is direction 'neutral' which has alt='' (hidden); still emitted for render-parity with legacy
+    // '5' is direction 'neutral' with alt='' (hidden); it remains in the SVG sequence.
     expect(svgAlts).toEqual(['Down', 'A', '', 'B', 'QCF', 'C'])
   })
 })

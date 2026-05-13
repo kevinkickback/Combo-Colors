@@ -1,6 +1,5 @@
-import type { App, MarkdownView } from 'obsidian'
+import type { App } from 'obsidian'
 import { Modal, Notice, Setting } from 'obsidian'
-import type comboColors from './main'
 
 export interface InputConfig {
   name: string
@@ -13,9 +12,7 @@ export class InputsModal extends Modal {
 
   constructor(
     app: App,
-    private readonly plugin: comboColors,
     private readonly onSubmit: (inputs: InputConfig[]) => Promise<void>,
-    private readonly profileId: string,
     initialInputs?: InputConfig[],
   ) {
     super(app)
@@ -68,14 +65,8 @@ export class InputsModal extends Modal {
       .setName('Default color')
       .setDesc('Used when resetting')
       .addColorPicker((picker) => {
-        picker.setValue(newInput.color || '#FFFFFF').onChange(async (value) => {
+        picker.setValue(newInput.color || '#FFFFFF').onChange((value) => {
           newInput.color = value
-          const profileData = this.plugin.settings.profiles[this.profileId]
-          if (profileData && newInput.name) {
-            profileData.colors[newInput.name] = value
-            await this.plugin.saveSettings()
-            this.plugin.updateColorsForProfile(this.profileId)
-          }
         })
       })
 
@@ -128,29 +119,7 @@ export class InputsModal extends Modal {
               return
             }
 
-            const profileData = this.plugin.settings.profiles[this.profileId]
-            profileData.desc = {}
-
-            for (const input of this.inputs) {
-              profileData.desc[input.name] = input.description
-              profileData.defaultColors ??= {}
-              if (!profileData.defaultColors[input.name]) {
-                profileData.defaultColors[input.name] = input.color
-              }
-            }
-
             await this.onSubmit(this.inputs)
-
-            for (const leaf of this.app.workspace.getLeavesOfType('markdown')) {
-              const view = leaf.view as MarkdownView
-              const file = view.file
-              if (!file) continue
-
-              const frontmatter = this.app.metadataCache.getCache(file.path)?.frontmatter
-              if (view.getMode() === 'preview' && frontmatter?.cc_profile === this.profileId) {
-                view.previewMode.rerender(true)
-              }
-            }
 
             this.close()
           }),

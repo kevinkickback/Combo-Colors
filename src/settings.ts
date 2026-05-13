@@ -316,27 +316,10 @@ export class settingsTab extends PluginSettingTab {
 
           new InputsModal(
             this.app,
-            this.plugin,
             async (inputs) => {
-              const previousColors = { ...profileData.colors }
-              profileData.desc = {}
-              profileData.colors = {}
-
-              for (const input of inputs) {
-                profileData.desc[input.name] = input.description
-                if (previousColors[input.name] === input.color) {
-                  profileData.colors[input.name] = previousColors[input.name]
-                } else {
-                  profileData.colors[input.name] = input.color
-                  profileData.defaultColors ??= {}
-                  profileData.defaultColors[input.name] = input.color
-                }
-              }
-
-              await this.plugin.saveSettings()
+              await this.plugin.saveProfileInputs(profile, inputs)
               this.display()
             },
-            profile,
             existingInputs,
           ).open()
         }),

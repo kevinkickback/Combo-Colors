@@ -24,7 +24,7 @@ export interface ColorSegment {
 
 /**
  * An SVG-icon segment. All fields map directly to what `createSvgElement` needs.
- * `repeat` mirrors the legacy `config.repeat` field (usually 1, 2 for doubled motions).
+ * `repeat` mirrors motion config repeat counts (usually 1, 2 for doubled motions).
  */
 export interface SvgSegment {
   kind: 'svg'
@@ -163,8 +163,7 @@ export function tokensToImageSegments(
     }
 
     // '.' joiners are syntactic connectors in traditional notation (qcf.A, cr.LP).
-    // The regex mode consumes the dot as part of the motion pattern, so it never
-    // appears in the output. Drop it here to match that behaviour.
+    // They are not rendered in image mode; '+' and '~' remain visible.
     // '+' and '~' are kept — they carry semantic meaning (simultaneous / kara).
     if (token.type === 'joiner' && token.rawValue === '.') continue
 

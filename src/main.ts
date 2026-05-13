@@ -4,10 +4,20 @@ import {
   Plugin,
   type WorkspaceLeaf,
 } from 'obsidian'
-import { tokensToColorSegments } from './adapter'
+import { tokensToColorSegments, tokensToImageSegments } from './adapter'
 import { parseNotation } from './parser'
-import { canonicalMotionMap, generateButtonMap } from './patterns'
 import { type CustomProfile, DEFAULT_SETTINGS, type Settings, settingsTab } from './settings'
+
+interface NotationRenderState {
+  profileId: string
+  textMode: string
+}
+
+interface ProfileInputEdit {
+  name: string
+  description: string
+  color: string
+}
 
 export default class comboColors extends Plugin {
   styleElement!: HTMLStyleElement
@@ -15,6 +25,7 @@ export default class comboColors extends Plugin {
 
   private metadataChanged!: Map<string, WorkspaceLeaf>
   private mutationObserver: MutationObserver | null = null
+  private notationState = new WeakMap<HTMLElement, NotationRenderState>()
 
   async onload() {
     const workspaceDocument = this.app.workspace.containerEl.ownerDocument
@@ -82,7 +93,6 @@ export default class comboColors extends Plugin {
           if (!this.isHtmlElement(notation)) continue
 
           const textMode = notation.textContent || ''
-          notation.dataset.textMode = textMode
 
           if (!profile || !profileId) {
             notation.textContent = '[ No notation profile in frontmatter ]'
@@ -119,7 +129,7 @@ export default class comboColors extends Plugin {
           if (!(view instanceof MarkdownView) || view.file !== file) continue
 
           if (view.getMode() === 'preview') {
-            view.previewMode.rerender(true)
+            this.rerenderPreviewViews({ filePath: file.path })
           } else if (view.getMode() === 'source') {
             this.metadataChanged.set(file.path, leaf)
           }
@@ -139,7 +149,7 @@ export default class comboColors extends Plugin {
 
           const matchedLeaf = this.metadataChanged.get(filePath)
           if (matchedLeaf === leaf) {
-            view.previewMode.rerender(true)
+            this.rerenderPreviewViews({ filePath })
             this.metadataChanged.delete(filePath)
           }
         }
@@ -222,18 +232,6 @@ export default class comboColors extends Plugin {
     sheet.insertRule(`.notation.imageMode { font-size: ${selectedSize.font}; }`)
   }
 
-  refreshMarkdownViews() {
-    // Refresh all open markdown views to apply settings changes
-    for (const leaf of this.app.workspace.getLeavesOfType('markdown')) {
-      const view = leaf.view
-      if (!(view instanceof MarkdownView)) continue
-
-      if (view.getMode() === 'preview') {
-        view.previewMode.rerender(true)
-      }
-    }
-  }
-
   private applyColorsWithParser(
     element: HTMLElement,
     notation: HTMLElement,
@@ -245,8 +243,11 @@ export default class comboColors extends Plugin {
       buttonInputs: Object.keys(profile.colors),
     })
     const segments = tokensToColorSegments(tokens, profile)
+    this.notationState.set(notation, {
+      profileId,
+      textMode,
+    })
 
-    notation.dataset.profileId = profileId
     notation.empty()
     const fragment = createFragment()
 
@@ -271,11 +272,14 @@ export default class comboColors extends Plugin {
   }
 
   private renderNotationAsImages(notation: HTMLElement) {
-    const profileId = notation.dataset.profileId
+    const state = this.notationState.get(notation)
+    if (!state) return
+
+    const profileId = state.profileId
     if (!profileId || !this.settings.profiles[profileId]) return
     const profile = this.settings.profiles[profileId]
 
-    const originalText = notation.dataset.textMode || notation.textContent || ''
+    const originalText = state.textMode
 
     const buttonColorMap = new Map<string, string>()
     for (const span of notation.querySelectorAll('span.cc-profile-color')) {
@@ -286,15 +290,41 @@ export default class comboColors extends Plugin {
       }
     }
 
+    const tokens = parseNotation(originalText, {
+      buttonInputs: Object.keys(profile.desc),
+    })
+    const segments = tokensToImageSegments(tokens, profile)
+
     notation.empty()
     const fragment = createFragment()
-    this.convertTextToImagesWithParserAndColors(
-      notation,
-      originalText,
-      profile,
-      fragment,
-      buttonColorMap,
-    )
+
+    for (const segment of segments) {
+      if (segment.kind === 'plain') {
+        fragment.appendText(segment.text)
+        continue
+      }
+
+      const element = this.createSvgElement(notation, {
+        source: segment.source,
+        class: segment.cssClass,
+        alt: segment.alt,
+      })
+
+      if (!element) continue
+
+      if (segment.cssClass === 'buttonIcon') {
+        const colorClass = buttonColorMap.get(segment.alt)
+        if (colorClass) {
+          element.setAttr('class', `buttonIcon ${colorClass}`)
+        }
+      }
+
+      const repeat = segment.repeat ?? 1
+      for (let i = 0; i < repeat; i++) {
+        fragment.append(i === 0 ? element : element.cloneNode(true))
+      }
+    }
+
     notation.append(fragment)
   }
 
@@ -309,107 +339,30 @@ export default class comboColors extends Plugin {
       if (notation.textContent === '[ No notation profile in frontmatter ]') continue
 
       // Cache text content for toggling back to text mode
-      notation.dataset.textMode ||= notation.textContent || ''
+      if (!this.notationState.has(notation)) {
+        const profileSpan = notation.querySelector<HTMLElement>('[data-profile-id]')
+        const profileId = profileSpan?.getAttribute('data-profile-id')
+        if (profileId) {
+          this.notationState.set(notation, {
+            profileId,
+            textMode: notation.textContent || '',
+          })
+        }
+      }
+
       const isImageMode = !notation.hasClass('imageMode')
       notation.toggleClass('imageMode', isImageMode)
 
       if (isImageMode) {
         this.renderNotationAsImages(notation)
       } else {
-        activeView.previewMode.rerender(true)
+        this.rerenderPreviewViews({ filePath: activeView.file?.path })
       }
     }
 
     if (notations.length > 0 && button) {
       button.textContent =
         button.textContent === 'Text notation' ? 'Icon notation' : 'Text notation'
-    }
-  }
-
-  private convertTextToImagesWithParserAndColors(
-    span: HTMLElement,
-    text: string,
-    profile: CustomProfile,
-    fragment: DocumentFragment,
-    buttonColorMap: Map<string, string>,
-  ) {
-    const tokens = parseNotation(text, {
-      buttonInputs: Object.keys(profile.desc),
-    })
-
-    for (const token of tokens) {
-      // Emit structural parentheses as plain text
-      if (token.type === 'repeat-start' || token.type === 'repeat-end') {
-        fragment.appendText(token.rawValue)
-        continue
-      }
-
-      // Emit separators and unknowns as plain text
-      if (token.type === 'separator' || token.type === 'unknown') {
-        fragment.appendText(token.rawValue)
-        continue
-      }
-
-      // '.' joiners are consumed by regex patterns (qcf., cr., etc.) and never
-      // appear in output. Drop them. '+' and '~' are kept (simultaneous / kara).
-      if (token.type === 'joiner') {
-        if (token.rawValue !== '.') fragment.appendText(token.rawValue)
-        continue
-      }
-
-      // Handle modifier tokens - emit as plain text
-      if (token.type === 'modifier') {
-        fragment.appendText(token.rawValue)
-        continue
-      }
-
-      // Handle motion and direction tokens - create SVG icons
-      if (token.type === 'motion' || token.type === 'direction') {
-        const motionLookup = canonicalMotionMap()
-        const config = motionLookup.get(token.value)
-        if (config) {
-          const element = this.createSvgElement(span, {
-            source: config.source,
-            class: config.class,
-            alt: config.alt,
-          })
-
-          if (element) {
-            const repeat = config.repeat ?? 1
-            for (let i = 0; i < repeat; i++) {
-              fragment.append(i === 0 ? element : element.cloneNode(true))
-            }
-          }
-        }
-        continue
-      }
-
-      // Handle button tokens - create colored SVG icons.
-      // Color classes are applied directly to the SVG element so that adjacent
-      // sibling CSS selectors (.motionIcon + .buttonIcon) continue to work.
-      if (token.type === 'button') {
-        const buttonLookup = new Map<string, { source: string; class: string; alt: string }>()
-        for (const [, config] of generateButtonMap(profile)) {
-          buttonLookup.set(config.alt, config)
-        }
-
-        const config = buttonLookup.get(token.value)
-        if (config) {
-          const element = this.createSvgElement(span, {
-            source: config.source,
-            class: config.class,
-            alt: config.alt,
-          })
-
-          if (element) {
-            const colorClass = buttonColorMap.get(token.value)
-            if (colorClass) {
-              element.setAttr('class', `buttonIcon ${colorClass}`)
-            }
-            fragment.append(element)
-          }
-        }
-      }
     }
   }
 
@@ -446,6 +399,52 @@ export default class comboColors extends Plugin {
     await this.saveData(this.settings)
   }
 
+  async saveProfileInputs(profileId: string, inputs: ProfileInputEdit[]): Promise<void> {
+    const profile = this.settings.profiles[profileId]
+    if (!profile) return
+
+    const previousColors = { ...profile.colors }
+    profile.desc = {}
+    profile.colors = {}
+    profile.defaultColors ??= {}
+
+    for (const input of inputs) {
+      profile.desc[input.name] = input.description
+      const color =
+        previousColors[input.name] === input.color ? previousColors[input.name] : input.color
+      profile.colors[input.name] = color
+      if (previousColors[input.name] !== input.color) {
+        profile.defaultColors[input.name] = input.color
+      }
+    }
+
+    await this.saveSettings()
+    this.updateColorsForProfile(profileId)
+    this.rerenderPreviewViews({ profileId })
+  }
+
+  rerenderPreviewViews(options: { filePath?: string; profileId?: string } = {}) {
+    for (const leaf of this.app.workspace.getLeavesOfType('markdown')) {
+      const view = leaf.view
+      if (!(view instanceof MarkdownView) || view.getMode() !== 'preview') continue
+
+      if (options.filePath && view.file?.path !== options.filePath) {
+        continue
+      }
+
+      if (options.profileId) {
+        const filePath = view.file?.path
+        if (!filePath) continue
+        const frontmatter = this.app.metadataCache.getCache(filePath)?.frontmatter
+        if (String(frontmatter?.cc_profile ?? '').trim() !== options.profileId) {
+          continue
+        }
+      }
+
+      view.previewMode.rerender(true)
+    }
+  }
+
   private setupMutationObserver() {
     const workspaceDocument = this.app.workspace.containerEl.ownerDocument
     this.mutationObserver = new MutationObserver((mutations) => {
@@ -462,7 +461,17 @@ export default class comboColors extends Plugin {
                 for (const notation of notations) {
                   if (this.isHtmlElement(notation) && !notation.hasClass('imageMode')) {
                     // Cache text content for toggling back to text mode
-                    notation.dataset.textMode ||= notation.textContent || ''
+                    if (!this.notationState.has(notation)) {
+                      const profileId = notation
+                        .querySelector<HTMLElement>('[data-profile-id]')
+                        ?.getAttribute('data-profile-id')
+                      if (profileId) {
+                        this.notationState.set(notation, {
+                          profileId,
+                          textMode: notation.textContent || '',
+                        })
+                      }
+                    }
                     notation.addClass('imageMode')
                     this.renderNotationAsImages(notation)
                   }

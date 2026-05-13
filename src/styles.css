@@ -63,12 +63,10 @@ svg.cc-profile-color text {
 	margin-left: -0.2rem;
 }
 
-span > .motionIcon:first-child[alt="Back"],
 .notation.imageMode > .motionIcon:first-child[alt="Back"] {
 	margin-left: -0.15rem;
 }
 
-span > .motionIcon:first-child[alt="QCF"],
 .notation.imageMode > .motionIcon:first-child[alt="QCF"] {
 	margin-left: -0.15rem;
 }
@@ -78,8 +76,6 @@ span > .motionIcon:first-child[alt="QCF"],
 	margin-left: 0.15rem;
 }
 
-span > .motionIcon:first-child[alt="QCB"],
-span > .motionIcon:first-child[alt="RDP"],
 .notation.imageMode > .motionIcon:first-child[alt="QCB"],
 .notation.imageMode > .motionIcon:first-child[alt="RDP"] {
 	margin-left: 0.15rem;
@@ -87,10 +83,6 @@ span > .motionIcon:first-child[alt="RDP"],
 
 .motionIcon[alt="QCF"] + .buttonIcon {
 	margin-left: 0.2rem;
-}
-
-.notation > span:not(:first-child) > .motionIcon:first-child[alt="Back"] {
-	margin-left: 0.15rem;
 }
 
 /* Missing profile notation message */
