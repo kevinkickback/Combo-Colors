@@ -1,6 +1,6 @@
 import type { CustomProfile } from './settings'
 
-interface MotionConfig {
+export interface MotionConfig {
   source: string
   class: string
   alt: string
@@ -254,6 +254,54 @@ export const imageMap = (profile: CustomProfile): MotionMap => {
     combinedMap.set(pattern, config)
   }
   return combinedMap
+}
+
+// Returns motion and direction SVG configs keyed by canonical parser value (e.g. 'qcf', 'down').
+// Used by the parser adapter to look up SVG configs without re-running regex patterns.
+export const canonicalMotionMap = (): Map<string, MotionConfig> => {
+  const result = new Map<string, MotionConfig>()
+  const motions = motionMap()
+
+  // Canonical parser value → representative test string that uniquely matches the right regex entry.
+  // Longer/more specific aliases are listed first so they are found before shorter overlapping ones.
+  const testCases: Array<[string, string]> = [
+    ['double-qcf', '236236'],
+    ['double-qcb', '214214'],
+    ['hcfb', '412364'],
+    ['hcbf', '632146'],
+    ['qcf', '236'],
+    ['qcb', '214'],
+    ['dp', '623'],
+    ['rdp', '421'],
+    ['hcf', '41236'],
+    ['hcb', '63214'],
+    ['dash-back', '44'],
+    ['dash-forward', '66'],
+    ['double-down', '22'],
+    ['double-up', '88'],
+    ['down-back', '1'],
+    ['down', '2'],
+    ['down-forward', '3'],
+    ['back', '4'],
+    ['neutral', '5'],
+    ['forward', '6'],
+    ['up-back', '7'],
+    ['up', '8'],
+    ['up-forward', '9'],
+  ]
+
+  for (const [canonical, sample] of testCases) {
+    for (const [regex, config] of motions) {
+      regex.lastIndex = 0
+      const match = regex.exec(sample)
+      if (match !== null && match.index === 0) {
+        result.set(canonical, config)
+        break
+      }
+    }
+  }
+
+  return result
 }
 
 // Generate color patterns for text processing

@@ -15,6 +15,8 @@ export interface Settings {
   selectedProfile: string
   profiles: Record<string, CustomProfile>
   iconSize: 'small' | 'medium' | 'large'
+  /** When true, use the parser-based rendering pipeline instead of the legacy regex path. */
+  parserMode: boolean
 }
 
 export type InputMapType = Record<string, CustomProfile>
@@ -127,6 +129,7 @@ export const DEFAULT_SETTINGS: Settings = {
   selectedProfile: 'asw',
   profiles: { ...inputMap },
   iconSize: 'medium',
+  parserMode: true,
 }
 
 export class settingsTab extends PluginSettingTab {
@@ -135,6 +138,22 @@ export class settingsTab extends PluginSettingTab {
   constructor(app: App, plugin: comboColors) {
     super(app, plugin)
     this.plugin = plugin
+  }
+
+  private createAdvancedSection(containerEl: HTMLElement): void {
+    new Setting(containerEl)
+      .setName('Parser mode')
+      .setDesc(
+        'Use the new parser-based rendering pipeline (recommended). Disable to use legacy regex path for testing.',
+      )
+      .addToggle((toggle) =>
+        toggle.setValue(this.plugin.settings.parserMode).onChange(async (value) => {
+          this.plugin.settings.parserMode = value
+          await this.plugin.saveSettings()
+          // Refresh all open markdown views to apply the mode change
+          this.plugin.refreshMarkdownViews()
+        }),
+      )
   }
 
   private createProfileSection(containerEl: HTMLElement): void {
@@ -348,5 +367,9 @@ export class settingsTab extends PluginSettingTab {
     const { containerEl } = this
     containerEl.empty()
     this.createProfileSection(containerEl)
+
+    // Advanced settings
+    containerEl.createEl('h3', { text: 'Advanced' })
+    this.createAdvancedSection(containerEl)
   }
 }

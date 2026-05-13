@@ -86,3 +86,10 @@
 
 ## NOTE:
 Combo Colors is intended to be used with reading view. Live preview is not supported.
+
+## Migration checkpoint note
+This branch currently includes both rendering implementations:
+- parser-based rendering (default/recommended)
+- legacy regex-based rendering (kept temporarily for parity testing)
+
+The legacy regex path is intended for removal after this checkpoint.

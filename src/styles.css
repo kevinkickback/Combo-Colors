@@ -4,11 +4,13 @@
 	white-space: nowrap;
 }
 
-.cc-profile-color svg:not(.motionIcon) circle {
+.cc-profile-color svg:not(.motionIcon) circle,
+svg.cc-profile-color:not(.motionIcon) circle {
 	fill: var(--notation-color);
 }
 
-.cc-profile-color svg text {
+.cc-profile-color svg text,
+svg.cc-profile-color text {
 	fill: var(--text-color, white);
 }
 
@@ -61,11 +63,13 @@
 	margin-left: -0.2rem;
 }
 
-span > .motionIcon:first-child[alt="Back"] {
+span > .motionIcon:first-child[alt="Back"],
+.notation.imageMode > .motionIcon:first-child[alt="Back"] {
 	margin-left: -0.15rem;
 }
 
-span > .motionIcon:first-child[alt="QCF"] {
+span > .motionIcon:first-child[alt="QCF"],
+.notation.imageMode > .motionIcon:first-child[alt="QCF"] {
 	margin-left: -0.15rem;
 }
 
@@ -75,7 +79,9 @@ span > .motionIcon:first-child[alt="QCF"] {
 }
 
 span > .motionIcon:first-child[alt="QCB"],
-span > .motionIcon:first-child[alt="RDP"] {
+span > .motionIcon:first-child[alt="RDP"],
+.notation.imageMode > .motionIcon:first-child[alt="QCB"],
+.notation.imageMode > .motionIcon:first-child[alt="RDP"] {
 	margin-left: 0.15rem;
 }
 

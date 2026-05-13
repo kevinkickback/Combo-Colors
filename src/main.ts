@@ -4,8 +4,10 @@ import {
   Plugin,
   type WorkspaceLeaf,
 } from 'obsidian'
-import { colorPatterns, imageMap } from './patterns'
-import { DEFAULT_SETTINGS, type Settings, settingsTab } from './settings'
+import { tokensToColorSegments } from './adapter'
+import { parseNotation } from './parser'
+import { canonicalMotionMap, colorPatterns, generateButtonMap, imageMap } from './patterns'
+import { type CustomProfile, DEFAULT_SETTINGS, type Settings, settingsTab } from './settings'
 
 export default class comboColors extends Plugin {
   styleElement!: HTMLStyleElement
@@ -82,64 +84,17 @@ export default class comboColors extends Plugin {
           const textMode = notation.textContent || ''
           notation.dataset.textMode = textMode
 
-          if (!profile) {
+          if (!profile || !profileId) {
             notation.textContent = '[ No notation profile in frontmatter ]'
             notation.classList.add('warning')
             continue
           }
 
-          const patterns = colorPatterns(profile)
-          for (const childNode of notation.childNodes) {
-            if (childNode.nodeType !== Node.TEXT_NODE) continue
-
-            const textContent = childNode.textContent || ''
-            const matchRanges = []
-
-            // Collect all matches first to handle overlapping patterns correctly
-            for (const [pattern, input] of patterns.entries()) {
-              pattern.lastIndex = 0
-              let match: RegExpExecArray | null = pattern.exec(textContent)
-              while (match !== null) {
-                matchRanges.push({
-                  start: match.index,
-                  end: match.index + match[0].length,
-                  input,
-                  text: match[0],
-                })
-                match = pattern.exec(textContent)
-              }
-            }
-
-            if (!matchRanges.length) continue
-
-            matchRanges.sort((a, b) => a.start - b.start)
-            const fragment = createFragment()
-            let lastIndex = 0
-
-            for (const { start, end, input, text } of matchRanges) {
-              if (lastIndex < start) {
-                fragment.appendText(textContent.slice(lastIndex, start))
-              }
-              fragment.append(
-                element.createSpan({
-                  cls: `cc-${profileId}-${input} cc-profile-color`,
-                  text,
-                  attr: {
-                    'data-color-input': input,
-                    'data-profile-id': profileId,
-                  },
-                }),
-              )
-              lastIndex = end
-            }
-
-            if (lastIndex < textContent.length) {
-              fragment.appendText(textContent.slice(lastIndex))
-            }
-
-            if (childNode.parentNode) {
-              childNode.parentNode.replaceChild(fragment, childNode)
-            }
+          // Use parser mode if enabled
+          if (this.settings.parserMode) {
+            this.applyColorsWithParser(element, notation, profileId, profile, textMode)
+          } else {
+            this.applyColorsWithRegex(element, notation, profileId, profile)
           }
         }
       },
@@ -272,6 +227,114 @@ export default class comboColors extends Plugin {
     sheet.insertRule(`.notation.imageMode { font-size: ${selectedSize.font}; }`)
   }
 
+  refreshMarkdownViews() {
+    // Refresh all open markdown views to apply parser mode changes
+    for (const leaf of this.app.workspace.getLeavesOfType('markdown')) {
+      const view = leaf.view
+      if (!(view instanceof MarkdownView)) continue
+
+      if (view.getMode() === 'preview') {
+        view.previewMode.rerender(true)
+      }
+    }
+  }
+
+  private applyColorsWithParser(
+    element: HTMLElement,
+    notation: HTMLElement,
+    profileId: string,
+    profile: CustomProfile,
+    textMode: string,
+  ) {
+    const tokens = parseNotation(textMode, {
+      buttonInputs: Object.keys(profile.colors),
+    })
+    const segments = tokensToColorSegments(tokens, profile)
+
+    notation.empty()
+    const fragment = createFragment()
+
+    for (const segment of segments) {
+      if (segment.kind === 'plain') {
+        fragment.appendText(segment.text)
+      } else if (segment.kind === 'colored') {
+        fragment.append(
+          element.createSpan({
+            cls: `cc-${profileId}-${segment.input} cc-profile-color`,
+            text: segment.rawText,
+            attr: {
+              'data-color-input': segment.input,
+              'data-profile-id': profileId,
+            },
+          }),
+        )
+      }
+    }
+
+    notation.append(fragment)
+  }
+
+  private applyColorsWithRegex(
+    element: HTMLElement,
+    notation: HTMLElement,
+    profileId: string,
+    profile: CustomProfile,
+  ) {
+    const patterns = colorPatterns(profile)
+    for (const childNode of notation.childNodes) {
+      if (childNode.nodeType !== Node.TEXT_NODE) continue
+
+      const textContent = childNode.textContent || ''
+      const matchRanges = []
+
+      // Collect all matches first to handle overlapping patterns correctly
+      for (const [pattern, input] of patterns.entries()) {
+        pattern.lastIndex = 0
+        let match: RegExpExecArray | null = pattern.exec(textContent)
+        while (match !== null) {
+          matchRanges.push({
+            start: match.index,
+            end: match.index + match[0].length,
+            input,
+            text: match[0],
+          })
+          match = pattern.exec(textContent)
+        }
+      }
+
+      if (!matchRanges.length) continue
+
+      matchRanges.sort((a, b) => a.start - b.start)
+      const fragment = createFragment()
+      let lastIndex = 0
+
+      for (const { start, end, input, text } of matchRanges) {
+        if (lastIndex < start) {
+          fragment.appendText(textContent.slice(lastIndex, start))
+        }
+        fragment.append(
+          element.createSpan({
+            cls: `cc-${profileId}-${input} cc-profile-color`,
+            text,
+            attr: {
+              'data-color-input': input,
+              'data-profile-id': profileId,
+            },
+          }),
+        )
+        lastIndex = end
+      }
+
+      if (lastIndex < textContent.length) {
+        fragment.appendText(textContent.slice(lastIndex))
+      }
+
+      if (childNode.parentNode) {
+        childNode.parentNode.replaceChild(fragment, childNode)
+      }
+    }
+  }
+
   private toggleNotations = () => {
     const activeView = this.app.workspace.getActiveViewOfType(MarkdownView)
     if (!activeView) return
@@ -288,15 +351,48 @@ export default class comboColors extends Plugin {
       notation.toggleClass('imageMode', isImageMode)
 
       if (isImageMode) {
-        for (const node of Array.from(notation.childNodes)) {
-          if (node.nodeType === Node.TEXT_NODE && node.textContent?.trim()) {
-            const span = notation.createSpan({ text: node.textContent })
-            node.parentNode?.replaceChild(span, node)
-          }
-        }
+        // For parser mode, process the entire original text at once to preserve context
+        if (this.settings.parserMode) {
+          const originalText = notation.dataset.textMode || ''
+          const profileId = notation
+            .querySelector('[data-profile-id]')
+            ?.getAttribute('data-profile-id')
+          if (profileId && this.settings.profiles[profileId]) {
+            const profile = this.settings.profiles[profileId]
 
-        for (const span of notation.querySelectorAll<HTMLElement>('span')) {
-          this.convertTextToImages(span)
+            // Extract button color classes from existing colored spans before clearing
+            const buttonColorMap = new Map<string, string>()
+            for (const span of notation.querySelectorAll('span.cc-profile-color')) {
+              const input = span.getAttribute('data-color-input')
+              const cls = span.className
+              if (input && cls) {
+                buttonColorMap.set(input, cls)
+              }
+            }
+
+            notation.empty()
+            const fragment = createFragment()
+            this.convertTextToImagesWithParserAndColors(
+              notation,
+              originalText,
+              profile,
+              fragment,
+              buttonColorMap,
+            )
+            notation.append(fragment)
+          }
+        } else {
+          // For regex mode, keep the original per-span processing
+          for (const node of Array.from(notation.childNodes)) {
+            if (node.nodeType === Node.TEXT_NODE && node.textContent?.trim()) {
+              const span = notation.createSpan({ text: node.textContent })
+              node.parentNode?.replaceChild(span, node)
+            }
+          }
+
+          for (const span of notation.querySelectorAll<HTMLElement>('span')) {
+            this.convertTextToImages(span)
+          }
         }
       } else {
         activeView.previewMode.rerender(true)
@@ -322,6 +418,189 @@ export default class comboColors extends Plugin {
 
     span.empty()
     const fragment = createFragment()
+
+    if (this.settings.parserMode) {
+      this.convertTextToImagesWithParser(span, text, profile, fragment)
+    } else {
+      this.convertTextToImagesWithRegex(span, text, profile, fragment)
+    }
+
+    span.append(fragment)
+  }
+
+  private convertTextToImagesWithParser(
+    span: HTMLElement,
+    text: string,
+    profile: CustomProfile,
+    fragment: DocumentFragment,
+  ) {
+    const tokens = parseNotation(text, {
+      buttonInputs: Object.keys(profile.desc),
+    })
+
+    for (const token of tokens) {
+      // Emit structural parentheses as plain text
+      if (token.type === 'repeat-start' || token.type === 'repeat-end') {
+        fragment.appendText(token.rawValue)
+        continue
+      }
+
+      // Emit separators and unknowns as plain text
+      if (token.type === 'separator' || token.type === 'unknown') {
+        fragment.appendText(token.rawValue)
+        continue
+      }
+
+      // '.' joiners are consumed by regex patterns (qcf., cr., etc.) and never
+      // appear in output. Drop them. '+' and '~' are kept (simultaneous / kara).
+      if (token.type === 'joiner') {
+        if (token.rawValue !== '.') fragment.appendText(token.rawValue)
+        continue
+      }
+
+      // Handle modifier tokens - emit as plain text
+      if (token.type === 'modifier') {
+        fragment.appendText(token.rawValue)
+        continue
+      }
+
+      // Handle motion and direction tokens - create SVG icons
+      if (token.type === 'motion' || token.type === 'direction') {
+        const motionLookup = canonicalMotionMap()
+        const config = motionLookup.get(token.value)
+        if (config) {
+          const element = this.createSvgElement(span, {
+            source: config.source,
+            class: config.class,
+            alt: config.alt,
+          })
+
+          if (element) {
+            const repeat = config.repeat ?? 1
+            for (let i = 0; i < repeat; i++) {
+              fragment.append(i === 0 ? element : element.cloneNode(true))
+            }
+          }
+        }
+        continue
+      }
+
+      // Handle button tokens - create SVG icons
+      if (token.type === 'button') {
+        const buttonLookup = new Map<string, { source: string; class: string; alt: string }>()
+        for (const [, config] of generateButtonMap(profile)) {
+          buttonLookup.set(config.alt, config)
+        }
+
+        const config = buttonLookup.get(token.value)
+        if (config) {
+          const element = this.createSvgElement(span, {
+            source: config.source,
+            class: config.class,
+            alt: config.alt,
+          })
+
+          if (element) {
+            fragment.append(element)
+          }
+        }
+      }
+    }
+  }
+
+  private convertTextToImagesWithParserAndColors(
+    span: HTMLElement,
+    text: string,
+    profile: CustomProfile,
+    fragment: DocumentFragment,
+    buttonColorMap: Map<string, string>,
+  ) {
+    const tokens = parseNotation(text, {
+      buttonInputs: Object.keys(profile.desc),
+    })
+
+    for (const token of tokens) {
+      // Emit structural parentheses as plain text
+      if (token.type === 'repeat-start' || token.type === 'repeat-end') {
+        fragment.appendText(token.rawValue)
+        continue
+      }
+
+      // Emit separators and unknowns as plain text
+      if (token.type === 'separator' || token.type === 'unknown') {
+        fragment.appendText(token.rawValue)
+        continue
+      }
+
+      // '.' joiners are consumed by regex patterns (qcf., cr., etc.) and never
+      // appear in output. Drop them. '+' and '~' are kept (simultaneous / kara).
+      if (token.type === 'joiner') {
+        if (token.rawValue !== '.') fragment.appendText(token.rawValue)
+        continue
+      }
+
+      // Handle modifier tokens - emit as plain text
+      if (token.type === 'modifier') {
+        fragment.appendText(token.rawValue)
+        continue
+      }
+
+      // Handle motion and direction tokens - create SVG icons
+      if (token.type === 'motion' || token.type === 'direction') {
+        const motionLookup = canonicalMotionMap()
+        const config = motionLookup.get(token.value)
+        if (config) {
+          const element = this.createSvgElement(span, {
+            source: config.source,
+            class: config.class,
+            alt: config.alt,
+          })
+
+          if (element) {
+            const repeat = config.repeat ?? 1
+            for (let i = 0; i < repeat; i++) {
+              fragment.append(i === 0 ? element : element.cloneNode(true))
+            }
+          }
+        }
+        continue
+      }
+
+      // Handle button tokens - create colored SVG icons.
+      // Color classes are applied directly to the SVG element so that adjacent
+      // sibling CSS selectors (.motionIcon + .buttonIcon) continue to work.
+      if (token.type === 'button') {
+        const buttonLookup = new Map<string, { source: string; class: string; alt: string }>()
+        for (const [, config] of generateButtonMap(profile)) {
+          buttonLookup.set(config.alt, config)
+        }
+
+        const config = buttonLookup.get(token.value)
+        if (config) {
+          const element = this.createSvgElement(span, {
+            source: config.source,
+            class: config.class,
+            alt: config.alt,
+          })
+
+          if (element) {
+            const colorClass = buttonColorMap.get(token.value)
+            if (colorClass) {
+              element.setAttr('class', `buttonIcon ${colorClass}`)
+            }
+            fragment.append(element)
+          }
+        }
+      }
+    }
+  }
+
+  private convertTextToImagesWithRegex(
+    span: HTMLElement,
+    text: string,
+    profile: CustomProfile,
+    fragment: DocumentFragment,
+  ) {
     let pos = 0
     const motions = imageMap(profile)
 
@@ -356,8 +635,6 @@ export default class comboColors extends Plugin {
         pos++
       }
     }
-
-    span.append(fragment)
   }
 
   private createSvgElement(
