@@ -1,70 +1,61 @@
-import {
-  type MarkdownPostProcessorContext,
-  MarkdownView,
-  Plugin,
-  type WorkspaceLeaf,
-} from 'obsidian'
-import { colorPatterns, imageMap } from './patterns'
-import { DEFAULT_SETTINGS, type Settings, settingsTab } from './settings'
+import { type MarkdownPostProcessorContext, MarkdownView, Plugin } from 'obsidian'
+import { validateAndNormalizeInputs } from './input-validation'
+import { ModeToggle } from './mode-toggle'
+import { NotationObserver } from './notation-observer'
+import { NotationRenderer } from './notation-renderer'
+import { RendererCordinator } from './renderer-cordinator'
+import { mergeSettingsWithDefaults, type Settings, settingsTab } from './settings'
+import { StyleManager } from './style-manager'
+
+interface ProfileInputEdit {
+  name: string
+  description: string
+  color: string
+}
 
 export default class comboColors extends Plugin {
   styleElement!: HTMLStyleElement
   settings!: Settings
 
-  private metadataChanged!: Map<string, WorkspaceLeaf>
-  private mutationObserver: MutationObserver | null = null
+  private notationRenderer = new NotationRenderer()
+  private styleManager!: StyleManager
+  private rerenderCoordinator!: RendererCordinator
+  private notationObserver!: NotationObserver
+  private modeToggle!: ModeToggle
 
   async onload() {
     const workspaceDocument = this.app.workspace.containerEl.ownerDocument
     this.styleElement = createEl('style', { attr: { id: 'dynamic-colors' } })
     workspaceDocument.head.appendChild(this.styleElement)
-    this.metadataChanged = new Map()
+    this.styleManager = new StyleManager(this.styleElement, this.app.workspace.containerEl)
+    this.rerenderCoordinator = new RendererCordinator(this.app)
+    this.notationObserver = new NotationObserver(
+      this.app.workspace.containerEl,
+      this.notationRenderer,
+      (notation) => this.renderNotationAsImages(notation),
+    )
+    this.modeToggle = new ModeToggle(
+      this.app,
+      this.notationRenderer,
+      (notation) => this.renderNotationAsImages(notation),
+      (options) => this.rerenderPreviewViews(options),
+    )
 
     await this.loadSettings()
 
     // Generate profile & icon size CSS rules for immediate use
     for (const profileId of Object.keys(this.settings.profiles)) {
       this.updateColorsForProfile(profileId)
-      this.updateIconSizes()
     }
 
     this.updateIconSizes()
 
     // Setup mutation observer to handle newly added DOM elements
-    this.setupMutationObserver()
+    this.notationObserver.connect()
 
     // First processor: Convert =:notation:= syntax into spans
     this.registerMarkdownPostProcessor((element: HTMLElement) => {
-      const processNode = (node: Node) => {
-        if (node.nodeType !== Node.TEXT_NODE) {
-          if (node.nodeType === Node.ELEMENT_NODE) {
-            for (const child of node.childNodes) processNode(child)
-          }
-          return
-        }
-
-        const text = node.textContent || ''
-        const regex = /=:(.+?):=/g
-        let match = regex.exec(text)
-        if (!match) return
-
-        const fragment = createFragment()
-        let lastIndex = 0
-
-        while (match) {
-          fragment.appendText(text.slice(lastIndex, match.index))
-          fragment.append(element.createSpan({ cls: 'notation', text: match[1] }))
-          lastIndex = regex.lastIndex
-          match = regex.exec(text)
-        }
-
-        fragment.appendText(text.slice(lastIndex))
-        if (node.parentNode) {
-          node.parentNode.replaceChild(fragment, node)
-        }
-      }
-
-      for (const node of element.childNodes) processNode(node)
+      this.replaceNotationSyntax(element)
     })
 
     // Second processor: Apply colors and process inputs based on profile
@@ -80,67 +71,21 @@ export default class comboColors extends Plugin {
           if (!this.isHtmlElement(notation)) continue
 
           const textMode = notation.textContent || ''
-          notation.dataset.textMode = textMode
 
-          if (!profile) {
+          if (!profile || !profileId) {
             notation.textContent = '[ No notation profile in frontmatter ]'
-            notation.classList.add('warning')
+            notation.addClass('warning')
             continue
           }
 
-          const patterns = colorPatterns(profile)
-          for (const childNode of notation.childNodes) {
-            if (childNode.nodeType !== Node.TEXT_NODE) continue
-
-            const textContent = childNode.textContent || ''
-            const matchRanges = []
-
-            // Collect all matches first to handle overlapping patterns correctly
-            for (const [pattern, input] of patterns.entries()) {
-              pattern.lastIndex = 0
-              let match: RegExpExecArray | null = pattern.exec(textContent)
-              while (match !== null) {
-                matchRanges.push({
-                  start: match.index,
-                  end: match.index + match[0].length,
-                  input,
-                  text: match[0],
-                })
-                match = pattern.exec(textContent)
-              }
-            }
-
-            if (!matchRanges.length) continue
-
-            matchRanges.sort((a, b) => a.start - b.start)
-            const fragment = createFragment()
-            let lastIndex = 0
-
-            for (const { start, end, input, text } of matchRanges) {
-              if (lastIndex < start) {
-                fragment.appendText(textContent.slice(lastIndex, start))
-              }
-              fragment.append(
-                element.createSpan({
-                  cls: `cc-${profileId}-${input} cc-profile-color`,
-                  text,
-                  attr: {
-                    'data-color-input': input,
-                    'data-profile-id': profileId,
-                  },
-                }),
-              )
-              lastIndex = end
-            }
-
-            if (lastIndex < textContent.length) {
-              fragment.appendText(textContent.slice(lastIndex))
-            }
-
-            if (childNode.parentNode) {
-              childNode.parentNode.replaceChild(fragment, childNode)
-            }
-          }
+          this.notationRenderer.applyTextMode(
+            element,
+            notation,
+            profileId,
+            profile,
+            textMode,
+            this.settings.naturalLanguageNotation,
+          )
         }
       },
     )
@@ -152,7 +97,7 @@ export default class comboColors extends Plugin {
             text: 'Icon notation',
             cls: 'combo',
           })
-          this.registerDomEvent(button, 'click', this.toggleNotations)
+          button.addEventListener('click', this.modeToggle.toggleNotations)
           codeblock.parentNode.replaceChild(button, codeblock)
         }
       }
@@ -161,45 +106,23 @@ export default class comboColors extends Plugin {
     // Handle profile changes in frontmatter
     this.registerEvent(
       this.app.metadataCache.on('changed', (file) => {
-        const metadata = this.app.metadataCache.getFileCache(file)
-        if (!metadata?.frontmatter) return
-
-        for (const leaf of this.app.workspace.getLeavesOfType('markdown')) {
-          const view = leaf.view
-          if (!(view instanceof MarkdownView) || view.file !== file) continue
-
-          if (view.getMode() === 'preview') {
-            view.previewMode.rerender(true)
-          } else if (view.getMode() === 'source') {
-            this.metadataChanged.set(file.path, leaf)
-          }
-        }
+        this.rerenderCoordinator.onMetadataChanged(file, (options) =>
+          this.rerenderPreviewViews(options),
+        )
       }),
     )
 
     // Process queued rerenders when switching views
     this.registerEvent(
       this.app.workspace.on('layout-change', () => {
-        for (const leaf of this.app.workspace.getLeavesOfType('markdown')) {
-          const view = leaf.view
-          if (!(view instanceof MarkdownView)) continue
-
-          const filePath = view.file?.path
-          if (!filePath || view.getMode() !== 'preview') continue
-
-          const matchedLeaf = this.metadataChanged.get(filePath)
-          if (matchedLeaf === leaf) {
-            view.previewMode.rerender(true)
-            this.metadataChanged.delete(filePath)
-          }
-        }
+        this.rerenderCoordinator.onLayoutChange((options) => this.rerenderPreviewViews(options))
       }),
     )
 
     this.addCommand({
       id: 'toggle-icons',
       name: 'Toggle notation icons',
-      callback: this.toggleNotations,
+      callback: this.modeToggle.toggleNotations,
     })
 
     this.addSettingTab(new settingsTab(this.app, this))
@@ -208,156 +131,20 @@ export default class comboColors extends Plugin {
   updateColorsForProfile(profileId: string) {
     const profile = this.settings.profiles[profileId]
     if (!profile) return
-
-    const sheet = this.styleElement.sheet
-    if (!sheet) return
-
-    // Remove existing rules for this profile before adding new ones
-    for (let i = sheet.cssRules.length - 1; i >= 0; i--) {
-      const rule = sheet.cssRules[i]
-      if (rule instanceof CSSStyleRule && rule.selectorText.includes(`cc-${profileId}-`)) {
-        sheet.deleteRule(i)
-      }
-    }
-
-    for (const input in profile.colors) {
-      if (!Object.prototype.hasOwnProperty.call(profile.colors, input)) continue
-      const color = profile.colors[input]
-      const className = `cc-${profileId}-${input}`
-      sheet.insertRule(
-        `.${className} { --notation-color: ${color}; --text-color: ${profile.textColor || '#FFFFFF'}; }`,
-      )
-    }
-
-    const elements = this.app.workspace.containerEl.querySelectorAll<HTMLElement>(
-      `[data-profile-id="${profileId}"]`,
-    )
-
-    for (const element of elements) {
-      const input = element.getAttribute('data-color-input')
-      if (!input || !profile.colors[input]) continue
-
-      element.classList.add(`cc-${profileId}-${input}`, 'cc-profile-color')
-    }
+    this.styleManager.updateColorsForProfile(profileId, profile)
   }
 
   updateIconSizes() {
-    const sheet = this.styleElement.sheet
-    if (!sheet) return
+    this.styleManager.updateIconSizes(this.settings.iconSize)
+  }
 
-    // Remove existing icon size rules
-    for (let i = sheet.cssRules.length - 1; i >= 0; i--) {
-      const rule = sheet.cssRules[i]
-      if (
-        rule instanceof CSSStyleRule &&
-        (rule.selectorText === '.buttonIcon' ||
-          rule.selectorText === '.motionIcon' ||
-          rule.selectorText === '.notation.imageMode')
-      ) {
-        sheet.deleteRule(i)
-      }
-    }
-
-    const sizes = {
-      small: { button: '1.2rem', motion: '1.4rem', font: '1rem' },
-      medium: { button: '1.4rem', motion: '1.6rem', font: '1.2rem' },
-      large: { button: '1.8rem', motion: '2.0rem', font: '1.4rem' },
-    }
-
-    const selectedSize = sizes[this.settings.iconSize]
-    sheet.insertRule(`.buttonIcon { height: ${selectedSize.button}; vertical-align: text-bottom; }`)
-    sheet.insertRule(
-      `.motionIcon { height: ${selectedSize.motion}; vertical-align: text-bottom; margin-left: -0.1rem; }`,
+  private renderNotationAsImages(notation: HTMLElement) {
+    this.notationRenderer.renderImageMode(
+      notation,
+      this.settings.profiles,
+      this.createSvgElement,
+      this.settings.naturalLanguageNotation,
     )
-    sheet.insertRule(`.notation.imageMode { font-size: ${selectedSize.font}; }`)
-  }
-
-  private toggleNotations = () => {
-    const activeView = this.app.workspace.getActiveViewOfType(MarkdownView)
-    if (!activeView) return
-
-    const notations = activeView.containerEl.querySelectorAll<HTMLElement>('.notation')
-    const button = activeView.containerEl.querySelector<HTMLElement>('.combo')
-
-    for (const notation of notations) {
-      if (notation.textContent === '[ No notation profile in frontmatter ]') continue
-
-      // Cache text content for toggling back to text mode
-      notation.dataset.textMode ||= notation.textContent || ''
-      const isImageMode = !notation.hasClass('imageMode')
-      notation.toggleClass('imageMode', isImageMode)
-
-      if (isImageMode) {
-        for (const node of Array.from(notation.childNodes)) {
-          if (node.nodeType === Node.TEXT_NODE && node.textContent?.trim()) {
-            const span = notation.createSpan({ text: node.textContent })
-            node.parentNode?.replaceChild(span, node)
-          }
-        }
-
-        for (const span of notation.querySelectorAll<HTMLElement>('span')) {
-          this.convertTextToImages(span)
-        }
-      } else {
-        activeView.previewMode.rerender(true)
-      }
-    }
-
-    if (notations.length > 0 && button) {
-      button.textContent =
-        button.textContent === 'Text notation' ? 'Icon notation' : 'Text notation'
-    }
-  }
-
-  private convertTextToImages(span: HTMLElement) {
-    const text = span.textContent || ''
-    if (!text) return
-
-    const profileId = span
-      .closest('.notation')
-      ?.querySelector('[data-profile-id]')
-      ?.getAttribute('data-profile-id')
-    if (!profileId || !this.settings.profiles[profileId]) return
-    const profile = this.settings.profiles[profileId]
-
-    span.empty()
-    const fragment = createFragment()
-    let pos = 0
-    const motions = imageMap(profile)
-
-    while (pos < text.length) {
-      let matched = false
-      // Skip motion inputs after 'x' to prevent matching in combinations (e.g. 5Cx4)
-      const isAfterX = pos > 0 && text[pos - 1].toLowerCase() === 'x'
-
-      for (const [regex, config] of motions) {
-        regex.lastIndex = 0
-        if (isAfterX) continue
-
-        const match = regex.exec(text.substring(pos))
-        if (!match || match.index !== 0) continue
-
-        const element = this.createSvgElement(span, config)
-
-        if (element) {
-          const count = config.repeat || 1
-          for (let i = 0; i < count; i++) {
-            fragment.append(i === 0 ? element : element.cloneNode(true))
-          }
-        }
-
-        pos += match[0].length
-        matched = true
-        break
-      }
-
-      if (!matched) {
-        fragment.appendText(text[pos])
-        pos++
-      }
-    }
-
-    span.append(fragment)
   }
 
   private createSvgElement(
@@ -366,90 +153,90 @@ export default class comboColors extends Plugin {
   ) {
     const svgDoc = new DOMParser().parseFromString(config.source, 'image/svg+xml')
     const sourceViewBox = svgDoc.documentElement.getAttribute('viewBox') || '0 0 100 100'
+    const altText = config.alt?.trim()
 
     const svg = span.createSvg('svg', {
       cls: config.class,
       attr: {
         xmlns: 'http://www.w3.org/2000/svg',
         viewBox: sourceViewBox,
-        alt: config.alt || null,
+        role: altText ? 'img' : null,
+        'aria-label': altText || null,
+        'aria-hidden': altText ? null : 'true',
+        focusable: 'false',
       },
     })
+
+    if (altText) {
+      svg.createEl('title', { text: altText })
+    }
+
     svg.append(...Array.from(svgDoc.documentElement.childNodes))
     return svg
   }
 
   onunload() {
     this.styleElement?.remove()
-    // Clean up mutation observers
-    this.disconnectMutationObserver()
+    this.notationObserver.disconnect()
   }
 
   async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData())
+    this.settings = mergeSettingsWithDefaults(await this.loadData())
   }
 
   async saveSettings() {
     await this.saveData(this.settings)
   }
 
-  private setupMutationObserver() {
-    const workspaceDocument = this.app.workspace.containerEl.ownerDocument
-    this.mutationObserver = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
-          // Check if we're in image mode by looking for notation elements with imageMode class
-          const isImageMode = !!this.app.workspace.containerEl.querySelector('.notation.imageMode')
+  async saveProfileInputs(profileId: string, inputs: ProfileInputEdit[]): Promise<void> {
+    const profile = this.settings.profiles[profileId]
+    if (!profile) return
 
-          if (isImageMode) {
-            for (const node of mutation.addedNodes) {
-              if (this.isHtmlElement(node)) {
-                // Process any notation elements in the new content
-                const notations = node.querySelectorAll('.notation')
-                for (const notation of notations) {
-                  if (this.isHtmlElement(notation) && !notation.hasClass('imageMode')) {
-                    // Cache text content for toggling back to text mode
-                    notation.dataset.textMode ||= notation.textContent || ''
-                    notation.addClass('imageMode')
+    const validated = validateAndNormalizeInputs(inputs)
+    if (!validated.valid) {
+      throw new Error(validated.message || 'Invalid profile inputs')
+    }
 
-                    for (const node of Array.from(notation.childNodes)) {
-                      if (node.nodeType === Node.TEXT_NODE && node.textContent?.trim()) {
-                        const span = notation.createSpan({
-                          text: node.textContent,
-                        })
-                        node.parentNode?.replaceChild(span, node)
-                      }
-                    }
+    const previousColors = { ...profile.colors }
+    profile.desc = {}
+    profile.colors = {}
+    profile.defaultColors ??= {}
 
-                    for (const span of notation.querySelectorAll<HTMLElement>('span')) {
-                      this.convertTextToImages(span)
-                    }
-                  }
-                }
+    for (const input of validated.inputs) {
+      profile.desc[input.name] = input.description
+      const color =
+        previousColors[input.name] === input.color ? previousColors[input.name] : input.color
+      profile.colors[input.name] = color
+      if (previousColors[input.name] !== input.color) {
+        profile.defaultColors[input.name] = input.color
+      }
+    }
 
-                // Also convert any spans in existing notations that might have been added
-                const existingNotations = node.querySelectorAll<HTMLElement>('.notation.imageMode')
-                for (const notation of existingNotations) {
-                  for (const span of notation.querySelectorAll<HTMLElement>(
-                    'span:not(:has(svg))',
-                  )) {
-                    if (span.textContent?.trim() && !span.querySelector('svg')) {
-                      this.convertTextToImages(span)
-                    }
-                  }
-                }
-              }
-            }
-          }
+    await this.saveSettings()
+    this.updateColorsForProfile(profileId)
+    this.rerenderPreviewViews({ profileId })
+  }
+
+  rerenderPreviewViews(options: { filePath?: string; profileId?: string } = {}) {
+    for (const leaf of this.app.workspace.getLeavesOfType('markdown')) {
+      const view = leaf.view
+      if (!(view instanceof MarkdownView) || view.getMode() !== 'preview') continue
+
+      if (options.filePath && view.file?.path !== options.filePath) {
+        continue
+      }
+
+      if (options.profileId) {
+        const filePath = view.file?.path
+        if (!filePath) continue
+        const frontmatter = this.app.metadataCache.getCache(filePath)?.frontmatter
+        if (String(frontmatter?.cc_profile ?? '').trim() !== options.profileId) {
+          continue
         }
       }
-    })
 
-    // Observe the entire document for changes
-    this.mutationObserver.observe(workspaceDocument.body, {
-      childList: true,
-      subtree: true,
-    })
+      view.previewMode.rerender(true)
+    }
   }
 
   private isHtmlElement(value: unknown): value is HTMLElement {
@@ -462,10 +249,84 @@ export default class comboColors extends Plugin {
     return value instanceof HTMLElement
   }
 
-  private disconnectMutationObserver() {
-    if (this.mutationObserver) {
-      this.mutationObserver.disconnect()
-      this.mutationObserver = null
+  private isLiteralContextElement(element: Element): boolean {
+    if (element.matches('code, pre, kbd, samp, script, style, textarea')) {
+      return true
     }
+
+    return (
+      element.classList.contains('math') ||
+      element.classList.contains('math-block') ||
+      element.classList.contains('cm-inline-code')
+    )
+  }
+
+  private isElementNode(node: Node): boolean {
+    const maybeInstanceOf = node as {
+      instanceOf?: (ctor: typeof Element) => boolean
+    }
+
+    if (typeof maybeInstanceOf.instanceOf === 'function') {
+      return maybeInstanceOf.instanceOf(Element)
+    }
+
+    return node instanceof Element
+  }
+
+  private isTextNode(node: Node): boolean {
+    const maybeInstanceOf = node as {
+      instanceOf?: (ctor: typeof Text) => boolean
+    }
+
+    if (typeof maybeInstanceOf.instanceOf === 'function') {
+      return maybeInstanceOf.instanceOf(Text)
+    }
+
+    return node instanceof Text
+  }
+
+  private replaceNotationSyntax(element: HTMLElement): void {
+    const processNode = (node: Node) => {
+      if (this.isElementNode(node)) {
+        const currentElement = node as Element
+        if (this.isLiteralContextElement(currentElement)) {
+          return
+        }
+      }
+
+      if (!this.isTextNode(node)) {
+        if (this.isElementNode(node)) {
+          for (const child of node.childNodes) processNode(child)
+        }
+        return
+      }
+
+      const text = node.textContent || ''
+      const regex = /=:(.+?):=/g
+      let match = regex.exec(text)
+      if (!match) return
+
+      const fragment = element.ownerDocument.createDocumentFragment()
+      let lastIndex = 0
+
+      while (match) {
+        fragment.append(text.slice(lastIndex, match.index))
+
+        const notationSpan = element.ownerDocument.createElement('span')
+        notationSpan.className = 'notation'
+        notationSpan.textContent = match[1]
+        fragment.append(notationSpan)
+
+        lastIndex = regex.lastIndex
+        match = regex.exec(text)
+      }
+
+      fragment.append(text.slice(lastIndex))
+      if (node.parentNode) {
+        node.parentNode.replaceChild(fragment, node)
+      }
+    }
+
+    for (const node of element.childNodes) processNode(node)
   }
 }

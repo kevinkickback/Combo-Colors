@@ -1,7 +1,9 @@
 import type { App, ColorComponent } from 'obsidian'
 import { Notice, PluginSettingTab, Setting } from 'obsidian'
+import { isSafeCssColor } from './color-validation'
 import type comboColors from './main'
 import { CustomProfileModal, DeleteProfileModal, InputsModal } from './modal'
+import { validateProfileId } from './profile-validation'
 
 export interface CustomProfile {
   name: string
@@ -15,6 +17,8 @@ export interface Settings {
   selectedProfile: string
   profiles: Record<string, CustomProfile>
   iconSize: 'small' | 'medium' | 'large'
+  naturalLanguageNotation: boolean
+  notationColorSettingsExpanded: boolean
 }
 
 export type InputMapType = Record<string, CustomProfile>
@@ -123,10 +127,154 @@ export const inputMap: InputMapType = {
   },
 }
 
-export const DEFAULT_SETTINGS: Settings = {
-  selectedProfile: 'asw',
-  profiles: { ...inputMap },
-  iconSize: 'medium',
+export function cloneProfile(profile: CustomProfile): CustomProfile {
+  return {
+    name: profile.name,
+    desc: { ...profile.desc },
+    colors: { ...profile.colors },
+    defaultColors: profile.defaultColors ? { ...profile.defaultColors } : undefined,
+    textColor: profile.textColor,
+  }
+}
+
+export function cloneProfiles(
+  profiles: Record<string, CustomProfile>,
+): Record<string, CustomProfile> {
+  const cloned: Record<string, CustomProfile> = {}
+  for (const profileId of Object.keys(profiles)) {
+    const profile = profiles[profileId]
+    if (!profile) continue
+    cloned[profileId] = cloneProfile(profile)
+  }
+  return cloned
+}
+
+export function createDefaultSettings(): Settings {
+  return {
+    selectedProfile: 'asw',
+    profiles: cloneProfiles(inputMap),
+    iconSize: 'medium',
+    naturalLanguageNotation: false,
+    notationColorSettingsExpanded: true,
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+function toStringRecord(value: unknown): Record<string, string> {
+  if (!isRecord(value)) return {}
+
+  const next: Record<string, string> = {}
+  for (const [key, recordValue] of Object.entries(value)) {
+    if (typeof recordValue === 'string') {
+      next[key] = recordValue
+    }
+  }
+
+  return next
+}
+
+function toColorRecord(value: unknown): Record<string, string> {
+  if (!isRecord(value)) return {}
+
+  const next: Record<string, string> = {}
+  for (const [key, recordValue] of Object.entries(value)) {
+    if (isSafeCssColor(recordValue)) {
+      next[key] = recordValue.trim()
+    }
+  }
+
+  return next
+}
+
+function mergeProfile(
+  persistedProfile: unknown,
+  fallbackProfile?: CustomProfile,
+): CustomProfile | null {
+  if (!isRecord(persistedProfile)) return null
+
+  const persistedDesc = toStringRecord(persistedProfile.desc)
+  const persistedColors = toColorRecord(persistedProfile.colors)
+  const persistedDefaultColors = toColorRecord(persistedProfile.defaultColors)
+
+  const base = fallbackProfile ? cloneProfile(fallbackProfile) : null
+
+  return {
+    name:
+      typeof persistedProfile.name === 'string'
+        ? persistedProfile.name
+        : (base?.name ?? 'Custom profile'),
+    desc: {
+      ...(base?.desc ?? {}),
+      ...persistedDesc,
+    },
+    colors: {
+      ...(base?.colors ?? {}),
+      ...persistedColors,
+    },
+    defaultColors:
+      Object.keys(persistedDefaultColors).length > 0 || base?.defaultColors
+        ? {
+            ...(base?.defaultColors ?? {}),
+            ...persistedDefaultColors,
+          }
+        : undefined,
+    textColor: isSafeCssColor(persistedProfile.textColor)
+      ? persistedProfile.textColor.trim()
+      : base?.textColor,
+  }
+}
+
+export function mergeSettingsWithDefaults(persistedSettings: unknown): Settings {
+  const defaults = createDefaultSettings()
+  if (!isRecord(persistedSettings)) return defaults
+
+  const mergedProfiles = cloneProfiles(defaults.profiles)
+  const persistedProfiles = isRecord(persistedSettings.profiles) ? persistedSettings.profiles : {}
+
+  for (const [profileId, profileValue] of Object.entries(persistedProfiles)) {
+    if (!validateProfileId(profileId).valid) continue
+
+    const fallbackProfile = mergedProfiles[profileId]
+    const mergedProfile = mergeProfile(profileValue, fallbackProfile)
+    if (!mergedProfile) continue
+    mergedProfiles[profileId] = mergedProfile
+  }
+
+  const selectedProfile =
+    typeof persistedSettings.selectedProfile === 'string' &&
+    Object.prototype.hasOwnProperty.call(mergedProfiles, persistedSettings.selectedProfile)
+      ? persistedSettings.selectedProfile
+      : defaults.selectedProfile
+
+  const iconSize =
+    persistedSettings.iconSize === 'small' ||
+    persistedSettings.iconSize === 'medium' ||
+    persistedSettings.iconSize === 'large'
+      ? persistedSettings.iconSize
+      : defaults.iconSize
+
+  return {
+    selectedProfile,
+    profiles: mergedProfiles,
+    iconSize,
+    naturalLanguageNotation:
+      typeof persistedSettings.naturalLanguageNotation === 'boolean'
+        ? persistedSettings.naturalLanguageNotation
+        : defaults.naturalLanguageNotation,
+    notationColorSettingsExpanded:
+      typeof persistedSettings.notationColorSettingsExpanded === 'boolean'
+        ? persistedSettings.notationColorSettingsExpanded
+        : defaults.notationColorSettingsExpanded,
+  }
+}
+
+export const DEFAULT_SETTINGS: Settings = createDefaultSettings()
+
+export function getProfileInputKeys(profile: CustomProfile): string[] {
+  return Object.keys(profile.colors).filter((input) => input.trim().length > 0)
 }
 
 export class settingsTab extends PluginSettingTab {
@@ -150,18 +298,26 @@ export class settingsTab extends PluginSettingTab {
       .addButton((button) =>
         button.setIcon('plus').onClick(() => {
           new CustomProfileModal(this.app, async (profileId, profileName) => {
-            if (profileId in this.plugin.settings.profiles) {
+            const profileIdValidation = validateProfileId(profileId)
+            if (!profileIdValidation.valid) {
+              new Notice(profileIdValidation.message || 'Invalid profile ID')
+              return
+            }
+
+            const normalizedProfileId = profileIdValidation.normalized
+
+            if (normalizedProfileId in this.plugin.settings.profiles) {
               new Notice('Profile ID already exists')
               return
             }
 
-            this.plugin.settings.profiles[profileId] = {
+            this.plugin.settings.profiles[normalizedProfileId] = {
               name: profileName,
               desc: {},
               colors: {},
               textColor: '#FFFFFF',
             }
-            this.plugin.settings.selectedProfile = profileId
+            this.plugin.settings.selectedProfile = normalizedProfileId
             await this.plugin.saveSettings()
             this.display()
             new Notice('Custom profile created')
@@ -234,12 +390,38 @@ export class settingsTab extends PluginSettingTab {
       })
 
     new Setting(containerEl)
+      .setName('Allow natural language')
+      .setDesc(
+        'Use full-text phrases like "quarter circle forward" (Does NOT disable shorthand notation)',
+      )
+      .addToggle((toggle) => {
+        toggle.setValue(this.plugin.settings.naturalLanguageNotation).onChange(async (value) => {
+          this.plugin.settings.naturalLanguageNotation = value
+          await this.plugin.saveSettings()
+          this.plugin.rerenderPreviewViews()
+        })
+      })
+
+    new Setting(containerEl)
       .setName('Color settings')
       .setDesc('Customize the colors for notation text and icons')
+      .addButton((button) => {
+        const isExpanded = this.plugin.settings.notationColorSettingsExpanded
+        return button
+          .setIcon(isExpanded ? 'chevron-down' : 'chevron-right')
+          .setTooltip(isExpanded ? 'Collapse color settings' : 'Expand color settings')
+          .onClick(async () => {
+            this.plugin.settings.notationColorSettingsExpanded = !isExpanded
+            await this.plugin.saveSettings()
+            this.display()
+          })
+      })
 
-    const colorSection = containerEl.createDiv({
-      cls: 'color-settings-container',
-    })
+    if (!this.plugin.settings.notationColorSettingsExpanded) {
+      return
+    }
+
+    const colorSection = containerEl.createDiv({ cls: 'color-settings-container' })
 
     new Setting(colorSection)
       .setName('Text color')
@@ -316,27 +498,15 @@ export class settingsTab extends PluginSettingTab {
 
           new InputsModal(
             this.app,
-            this.plugin,
             async (inputs) => {
-              const previousColors = { ...profileData.colors }
-              profileData.desc = {}
-              profileData.colors = {}
-
-              for (const input of inputs) {
-                profileData.desc[input.name] = input.description
-                if (previousColors[input.name] === input.color) {
-                  profileData.colors[input.name] = previousColors[input.name]
-                } else {
-                  profileData.colors[input.name] = input.color
-                  profileData.defaultColors ??= {}
-                  profileData.defaultColors[input.name] = input.color
-                }
+              try {
+                await this.plugin.saveProfileInputs(profile, inputs)
+                this.display()
+              } catch (error) {
+                const message = error instanceof Error ? error.message : 'Could not save inputs'
+                new Notice(message)
               }
-
-              await this.plugin.saveSettings()
-              this.display()
             },
-            profile,
             existingInputs,
           ).open()
         }),
