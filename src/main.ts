@@ -147,10 +147,10 @@ export default class comboColors extends Plugin {
     )
   }
 
-  private createSvgElement(
+  private createSvgElement = (
     span: HTMLElement,
     config: { class?: string; source: string; alt?: string },
-  ) {
+  ) => {
     const svgDoc = new DOMParser().parseFromString(config.source, 'image/svg+xml')
     const sourceViewBox = svgDoc.documentElement.getAttribute('viewBox') || '0 0 100 100'
     const altText = config.alt?.trim()
@@ -270,7 +270,7 @@ export default class comboColors extends Plugin {
       return maybeInstanceOf.instanceOf(Element)
     }
 
-    return node instanceof Element
+    return node.nodeType === Node.ELEMENT_NODE
   }
 
   private isTextNode(node: Node): boolean {
@@ -282,7 +282,7 @@ export default class comboColors extends Plugin {
       return maybeInstanceOf.instanceOf(Text)
     }
 
-    return node instanceof Text
+    return node.nodeType === Node.TEXT_NODE
   }
 
   private replaceNotationSyntax(element: HTMLElement): void {
