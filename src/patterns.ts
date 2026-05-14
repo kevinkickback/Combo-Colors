@@ -140,6 +140,24 @@ const MOTION_CONFIG_BY_CANONICAL: Record<CanonicalRenderValue, MotionConfig> = {
   },
 }
 
+export function getMissingCanonicalMotionConfigs(): CanonicalRenderValue[] {
+  const missing: CanonicalRenderValue[] = []
+
+  for (const definition of MOTION_DEFINITIONS) {
+    if (!MOTION_CONFIG_BY_CANONICAL[definition.value]) {
+      missing.push(definition.value)
+    }
+  }
+
+  for (const definition of DIRECTION_DEFINITIONS) {
+    if (!MOTION_CONFIG_BY_CANONICAL[definition.value]) {
+      missing.push(definition.value)
+    }
+  }
+
+  return missing
+}
+
 // Generate button inputs based on profile
 export const generateButtonMap = (profile: CustomProfile): ButtonMap => {
   const buttonMap = new Map()
@@ -183,6 +201,11 @@ export const generateButtonMap = (profile: CustomProfile): ButtonMap => {
 // Returns motion and direction SVG configs keyed by canonical parser value (e.g. 'qcf', 'down').
 // Used by the parser adapter to look up SVG configs without alias re-parsing.
 export const canonicalMotionMap = (): Map<string, MotionConfig> => {
+  const missingDefinitions = getMissingCanonicalMotionConfigs()
+  if (missingDefinitions.length > 0) {
+    throw new Error(`Missing canonical motion configuration(s): ${missingDefinitions.join(', ')}`)
+  }
+
   const result = new Map<string, MotionConfig>()
 
   for (const definition of MOTION_DEFINITIONS) {

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { canonicalMotionMap, generateButtonMap } from '../src/patterns'
+import {
+  canonicalMotionMap,
+  generateButtonMap,
+  getMissingCanonicalMotionConfigs,
+} from '../src/patterns'
 
 const testProfile = {
   name: 'Test Profile',
@@ -34,5 +38,9 @@ describe('patterns', () => {
     expect(map.get('qcb')?.alt).toBe('QCB')
     expect(map.get('dp')?.alt).toBe('DP')
     expect(map.get('neutral')?.alt).toBe('')
+  })
+
+  it('covers all canonical schema values with motion configs', () => {
+    expect(getMissingCanonicalMotionConfigs()).toEqual([])
   })
 })

@@ -50,50 +50,136 @@ export function tokensToColorSegments(
 ): RenderSegment[] {
   const knownInputs = new Set(Object.keys(profile.colors))
 
-  // Second pass: generate segments, coloring motions/directions with following button color
-  return tokens.map((token, index): RenderSegment => {
-    // Button tokens are always colored if in profile
+  const resolveInheritedInput = (index: number): string | undefined => {
+    const token = tokens[index]
+    if (!token) return undefined
+
     if (token.type === 'button' && knownInputs.has(token.value)) {
-      return { kind: 'colored', input: token.value, rawText: token.rawValue }
+      return token.value
     }
 
-    // Motion, direction, modifier, and joiner tokens all inherit color from the following button.
-    // Joiners (. + ~) and modifiers (j. dj. etc.) are transparent in the look-ahead chain.
-    // Space separators are also transparent to support phrases like "quarter circle forward LP".
-    // Modifiers and joiners can also pass through motion/direction tokens to find a button.
-    // Non-space separators (, > |>) break the chain.
     if (
-      (token.type === 'motion' ||
-        token.type === 'direction' ||
-        token.type === 'modifier' ||
-        token.type === 'joiner') &&
-      index < tokens.length - 1
+      token.type !== 'motion' &&
+      token.type !== 'direction' &&
+      token.type !== 'modifier' &&
+      token.type !== 'joiner'
     ) {
-      // Look ahead for the next button, stopping at non-space separators
-      for (let i = index + 1; i < tokens.length; i++) {
-        // Joiners and modifiers are transparent — skip past them
-        if (tokens[i].type === 'joiner' || tokens[i].type === 'modifier') {
+      return undefined
+    }
+
+    // Look ahead for the next button, stopping at non-space separators.
+    for (let i = index + 1; i < tokens.length; i++) {
+      if (tokens[i].type === 'joiner' || tokens[i].type === 'modifier') {
+        continue
+      }
+
+      if (tokens[i].type === 'separator') {
+        if (tokens[i].rawValue === ' ') {
           continue
         }
-        // Spaces are transparent; action separators break the chain.
-        if (tokens[i].type === 'separator') {
-          if (tokens[i].rawValue === ' ') {
-            continue
-          }
-          break
-        }
-        if (tokens[i].type === 'button' && knownInputs.has(tokens[i].value)) {
-          return { kind: 'colored', input: tokens[i].value, rawText: token.rawValue }
-        }
-        // Motion/direction stops the chain only when looking from another motion/direction.
-        // Modifiers and joiners can pass through to find a button beyond a direction.
-        if (
-          (token.type === 'motion' || token.type === 'direction') &&
-          (tokens[i].type === 'motion' || tokens[i].type === 'direction')
-        ) {
-          break
-        }
+        break
       }
+
+      if (tokens[i].type === 'button' && knownInputs.has(tokens[i].value)) {
+        return tokens[i].value
+      }
+
+      if (
+        (token.type === 'motion' || token.type === 'direction') &&
+        (tokens[i].type === 'motion' || tokens[i].type === 'direction')
+      ) {
+        break
+      }
+    }
+
+    return undefined
+  }
+
+  const inheritedInputByIndex: Array<string | undefined> = tokens.map((_, index) =>
+    resolveInheritedInput(index),
+  )
+
+  // Count annotations like (2) inherit the color of the immediately preceding
+  // colored action token, but textual notes like (feint) remain plain.
+  for (let start = 0; start < tokens.length; start++) {
+    if (tokens[start].type !== 'repeat-start') continue
+
+    let depth = 1
+    let end = start + 1
+
+    while (end < tokens.length && depth > 0) {
+      if (tokens[end].type === 'repeat-start') depth += 1
+      else if (tokens[end].type === 'repeat-end') depth -= 1
+      end += 1
+    }
+
+    if (depth !== 0) continue
+
+    const endIndex = end - 1
+    const innerText = tokens
+      .slice(start + 1, endIndex)
+      .map((token) => token.rawValue)
+      .join('')
+
+    // Accept either a bare number (2), or a repeat-suffix form (x3, xN, *7, *N)
+    if (!/^\s*\d+\s*$/.test(innerText) && !/^\s*[xX*][A-Za-z0-9]+\s*$/.test(innerText)) {
+      continue
+    }
+
+    const previousToken = tokens[start - 1]
+    if (!previousToken || previousToken.type === 'separator') {
+      continue
+    }
+
+    const inheritedInput = inheritedInputByIndex[start - 1]
+    if (!inheritedInput) {
+      continue
+    }
+
+    for (let i = start; i <= endIndex; i++) {
+      inheritedInputByIndex[i] = inheritedInput
+    }
+  }
+
+  // Repeat suffixes like x7, xN, *7, *N inherit color when they are
+  // directly attached to an already-colored action token (e.g. 236Cx7).
+  for (let index = 0; index < tokens.length; index++) {
+    const token = tokens[index]
+    if (token.type !== 'unknown' || !/^[xX*]$/.test(token.rawValue)) {
+      continue
+    }
+
+    const inheritedInput = inheritedInputByIndex[index - 1]
+    const previousToken = tokens[index - 1]
+    if (!inheritedInput || !previousToken || previousToken.type === 'separator') {
+      continue
+    }
+
+    let cursor = index + 1
+    while (
+      cursor < tokens.length &&
+      tokens[cursor].type === 'unknown' &&
+      /^[A-Za-z0-9]$/.test(tokens[cursor].rawValue)
+    ) {
+      cursor += 1
+    }
+
+    if (cursor === index + 1) {
+      continue
+    }
+
+    for (let i = index; i < cursor; i++) {
+      inheritedInputByIndex[i] = inheritedInput
+    }
+
+    index = cursor - 1
+  }
+
+  // Second pass: generate segments, coloring motions/directions with following button color
+  return tokens.map((token, index): RenderSegment => {
+    const inheritedInput = inheritedInputByIndex[index]
+    if (inheritedInput) {
+      return { kind: 'colored', input: inheritedInput, rawText: token.rawValue }
     }
 
     // Everything else (separators, modifiers, unknown, etc.) becomes plain text

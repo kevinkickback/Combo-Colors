@@ -170,6 +170,30 @@ describe('parseNotation', () => {
     ])
   })
 
+  it('parses single-letter down alias with bracketed button (d.[HP])', () => {
+    const tokens = parseNotation('d.[HP]', {
+      buttonInputs: ['HP'],
+    })
+
+    expect(tokens).toEqual([
+      { type: 'direction', value: 'down', rawValue: 'd' },
+      { type: 'joiner', value: '.', rawValue: '.' },
+      { type: 'button', value: 'HP', rawValue: '[HP]' },
+    ])
+  })
+
+  it('parses numeric motion before joiner dot (236.LP)', () => {
+    const tokens = parseNotation('236.LP', {
+      buttonInputs: ['LP'],
+    })
+
+    expect(tokens).toEqual([
+      { type: 'motion', value: 'qcf', rawValue: '236' },
+      { type: 'joiner', value: '.', rawValue: '.' },
+      { type: 'button', value: 'LP', rawValue: 'LP' },
+    ])
+  })
+
   it('does not match single-letter buttons inside words', () => {
     const tokens = parseNotation('word A', {
       buttonInputs: ['A'],

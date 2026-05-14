@@ -1,5 +1,7 @@
 import type { App } from 'obsidian'
 import { Modal, Notice, Setting } from 'obsidian'
+import { validateAndNormalizeInputs } from './input-validation'
+import { validateProfileId } from './profile-validation'
 
 export interface InputConfig {
   name: string
@@ -114,13 +116,13 @@ export class InputsModal extends Modal {
           .setButtonText('Save')
           .setCta()
           .onClick(async () => {
-            if (this.inputs.some((input) => !input.name)) {
-              new Notice('Please fill in all input fields')
+            const validated = validateAndNormalizeInputs(this.inputs)
+            if (!validated.valid) {
+              new Notice(validated.message || 'Please fix invalid input values')
               return
             }
 
-            await this.onSubmit(this.inputs)
-
+            await this.onSubmit(validated.inputs)
             this.close()
           }),
       )
@@ -176,11 +178,18 @@ export class CustomProfileModal extends Modal {
           .setButtonText('Create profile')
           .setCta()
           .onClick(async () => {
-            if (!profileId || !profileName) {
+            if (!profileName.trim()) {
               new Notice('Please fill in all fields')
               return
             }
-            await this.onSubmit(profileId, profileName)
+
+            const validation = validateProfileId(profileId)
+            if (!validation.valid) {
+              new Notice(validation.message || 'Invalid profile ID')
+              return
+            }
+
+            await this.onSubmit(validation.normalized, profileName.trim())
             this.close()
           }),
       )

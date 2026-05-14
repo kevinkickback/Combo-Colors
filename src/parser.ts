@@ -25,7 +25,7 @@ export interface ParserOptions {
 }
 
 const WORD_CHAR = /[A-Za-z0-9_]/
-const DIGIT_OR_DOT = /[0-9.]/
+const DIGIT_CHAR = /[0-9]/
 
 // Separators mark transitions between distinct actions (chain, link, land, etc.)
 const SEPARATORS = new Set([',', '>', '|>'])
@@ -61,7 +61,7 @@ function isWordCharacter(char: string | undefined): boolean {
 function hasNumericBoundary(input: string, start: number, length: number): boolean {
   const before = input[start - 1]
   const after = input[start + length]
-  return !isWordCharacter(before) && !(typeof after === 'string' && DIGIT_OR_DOT.test(after))
+  return !isWordCharacter(before) && !(typeof after === 'string' && DIGIT_CHAR.test(after))
 }
 
 function isIsolatedNumericAlias(input: string, start: number, aliasLength: number): boolean {

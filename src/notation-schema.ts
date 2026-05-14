@@ -10,7 +10,11 @@ export const DIRECTION_DEFINITIONS = [
     aliases: ['db', '1'],
     naturalLanguageAliases: ['down-back', 'down back'],
   },
-  { value: 'down', aliases: ['cr', '2'], naturalLanguageAliases: ['crouch', 'crouching', 'down'] },
+  {
+    value: 'down',
+    aliases: ['cr', '2', 'd'],
+    naturalLanguageAliases: ['crouch', 'crouching', 'down'],
+  },
   {
     value: 'down-forward',
     aliases: ['df', '3'],

@@ -1,6 +1,6 @@
 import { tokensToColorSegments, tokensToImageSegments } from './adapter'
 import { parseNotation } from './parser'
-import type { CustomProfile } from './settings'
+import { type CustomProfile, getProfileInputKeys } from './settings'
 
 export interface NotationRenderState {
   profileId: string
@@ -37,7 +37,7 @@ export class NotationRenderer {
     allowNaturalLanguageNotation: boolean,
   ): void {
     const tokens = parseNotation(textMode, {
-      buttonInputs: Object.keys(profile.colors),
+      buttonInputs: getProfileInputKeys(profile),
       allowNaturalLanguageNotation,
     })
     const segments = tokensToColorSegments(tokens, profile)
@@ -92,7 +92,7 @@ export class NotationRenderer {
     }
 
     const tokens = parseNotation(state.textMode, {
-      buttonInputs: Object.keys(profile.desc),
+      buttonInputs: getProfileInputKeys(profile),
       allowNaturalLanguageNotation,
     })
     const segments = tokensToImageSegments(tokens, profile)

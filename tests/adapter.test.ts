@@ -111,6 +111,88 @@ describe('tokensToColorSegments', () => {
     // Same for st→B and qcf→C groups.
     expect(coloredInputs).toEqual(['A', 'A', 'A', 'B', 'B', 'B', 'C', 'C', 'C'])
   })
+
+  it('colors direction/motion notation with dot-joiners before buttons', () => {
+    const downTokens = parseNotation('d.[HP]', { buttonInputs: ['HP'] })
+    const downSegments = tokensToColorSegments(downTokens, trdProfile)
+    const downColored = downSegments
+      .filter((s) => s.kind === 'colored')
+      .map((s) => (s as { input: string }).input)
+
+    // direction d, joiner ., and button [HP]
+    expect(downColored).toEqual(['HP', 'HP', 'HP'])
+
+    const motionTokens = parseNotation('236.LP', { buttonInputs: ['LP'] })
+    const motionSegments = tokensToColorSegments(motionTokens, trdProfile)
+    const motionColored = motionSegments
+      .filter((s) => s.kind === 'colored')
+      .map((s) => (s as { input: string }).input)
+
+    // motion 236, joiner ., and button LP
+    expect(motionColored).toEqual(['LP', 'LP', 'LP'])
+  })
+
+  it('colors numeric count annotations attached to a colored action', () => {
+    const tokens = parseNotation('236C(2)', { buttonInputs: ['C'] })
+    const segments = tokensToColorSegments(tokens, aswProfile)
+
+    const coloredInputs = segments
+      .filter((s) => s.kind === 'colored')
+      .map((s) => (s as { input: string }).input)
+
+    // qcf, C, (, 2, ) all inherit C's color
+    expect(coloredInputs).toEqual(['C', 'C', 'C', 'C', 'C'])
+  })
+
+  it('colors parenthesized repeat suffix forms like (x3) and (xN)', () => {
+    const tokens = parseNotation('236A(x3)', { buttonInputs: ['A'] })
+    const segments = tokensToColorSegments(tokens, aswProfile)
+    const coloredInputs = segments
+      .filter((s) => s.kind === 'colored')
+      .map((s) => (s as { input: string }).input)
+
+    // qcf, A, (, x, 3, ) all inherit A
+    expect(coloredInputs).toEqual(['A', 'A', 'A', 'A', 'A', 'A'])
+  })
+
+  it('keeps textual parenthetical notes plain', () => {
+    const tokens = parseNotation('236C(feint)', { buttonInputs: ['C'] })
+    const segments = tokensToColorSegments(tokens, aswProfile)
+
+    const coloredInputs = segments
+      .filter((s) => s.kind === 'colored')
+      .map((s) => (s as { input: string }).input)
+
+    // qcf and C inherit/use C; note text stays plain
+    expect(coloredInputs).toEqual(['C', 'C'])
+
+    const plainText = segments
+      .filter((s) => s.kind === 'plain')
+      .map((s) => s.text)
+      .join('')
+
+    expect(plainText).toContain('(feint)')
+  })
+
+  it('colors attached repeat suffixes like x7 and xN', () => {
+    const numericTokens = parseNotation('236Cx7', { buttonInputs: ['C'] })
+    const numericSegments = tokensToColorSegments(numericTokens, aswProfile)
+    const numericColored = numericSegments
+      .filter((s) => s.kind === 'colored')
+      .map((s) => (s as { input: string }).input)
+
+    // qcf, C, x, 7 all inherit/use C
+    expect(numericColored).toEqual(['C', 'C', 'C', 'C'])
+
+    const symbolicTokens = parseNotation('236CxN', { buttonInputs: ['C'] })
+    const symbolicSegments = tokensToColorSegments(symbolicTokens, aswProfile)
+    const symbolicColored = symbolicSegments
+      .filter((s) => s.kind === 'colored')
+      .map((s) => (s as { input: string }).input)
+
+    // qcf, C, x, N all inherit/use C
+    expect(symbolicColored).toEqual(['C', 'C', 'C', 'C'])
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -312,8 +394,8 @@ describe('Parser + Adapter integration', () => {
   })
 
   it('colors motion + button with repeat suffix (214Bx5)', () => {
-    // 214Bx5: motion 214, button B, then x5 (repeat suffix parsed as unknown tokens)
-    // With B now recognized as a button, 214 inherits B's color and B is colored
+    // 214Bx5: motion 214, button B, then x5 repeat suffix (unknown token run)
+    // Motion, button, and suffix all inherit B's color when attached.
     const notation = '214Bx5'
     const tokens = parseNotation(notation, { buttonInputs: ['B'] })
     const segments = tokensToColorSegments(tokens, aswProfile)
@@ -322,8 +404,8 @@ describe('Parser + Adapter integration', () => {
       .filter((s) => s.kind === 'colored')
       .map((s) => (s as { input: string }).input)
 
-    // 214 (motion) inherits B's color, B (button) is colored; x and 5 remain plain (unknown)
-    expect(coloredInputs).toEqual(['B', 'B'])
+    // 214 (motion), B (button), x and 5 all use B's color
+    expect(coloredInputs).toEqual(['B', 'B', 'B', 'B'])
   })
 
   it('does NOT render SVG icon for "f" in "feint" comment', () => {
