@@ -243,10 +243,15 @@ export default class comboColors extends Plugin {
     const maybeInstanceOf = value as {
       instanceOf?: (ctor: typeof HTMLElement) => boolean
     }
+    const activeWindow =
+      this.app.workspace.containerEl.ownerDocument?.defaultView ??
+      (typeof window !== 'undefined' ? window : undefined)
+
     if (typeof maybeInstanceOf?.instanceOf === 'function') {
-      return maybeInstanceOf.instanceOf(HTMLElement)
+      return maybeInstanceOf.instanceOf(activeWindow?.HTMLElement ?? HTMLElement)
     }
-    return value instanceof HTMLElement
+
+    return activeWindow ? value instanceof activeWindow.HTMLElement : false
   }
 
   private isLiteralContextElement(element: Element): boolean {
@@ -270,7 +275,9 @@ export default class comboColors extends Plugin {
       return maybeInstanceOf.instanceOf(Element)
     }
 
-    return node.nodeType === Node.ELEMENT_NODE
+    const activeWindow =
+      node.ownerDocument?.defaultView ?? (typeof window !== 'undefined' ? window : undefined)
+    return node.nodeType === (activeWindow?.Node.ELEMENT_NODE ?? 1)
   }
 
   private isTextNode(node: Node): boolean {
@@ -282,7 +289,9 @@ export default class comboColors extends Plugin {
       return maybeInstanceOf.instanceOf(Text)
     }
 
-    return node.nodeType === Node.TEXT_NODE
+    const activeWindow =
+      node.ownerDocument?.defaultView ?? (typeof window !== 'undefined' ? window : undefined)
+    return node.nodeType === (activeWindow?.Node.TEXT_NODE ?? 3)
   }
 
   private replaceNotationSyntax(element: HTMLElement): void {

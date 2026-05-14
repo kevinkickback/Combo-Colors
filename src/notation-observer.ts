@@ -112,16 +112,19 @@ export class NotationObserver {
     const maybeInstanceOf = value as {
       instanceOf?: (ctor: typeof HTMLElement) => boolean
     }
+    const activeWindow =
+      this.workspaceContainerEl.ownerDocument?.defaultView ??
+      (typeof window !== 'undefined' ? window : undefined)
 
     if (typeof maybeInstanceOf?.instanceOf === 'function') {
-      return maybeInstanceOf.instanceOf(HTMLElement)
+      return maybeInstanceOf.instanceOf(activeWindow?.HTMLElement ?? HTMLElement)
     }
 
     return (
       typeof value === 'object' &&
       value !== null &&
       'nodeType' in value &&
-      (value as Node).nodeType === Node.ELEMENT_NODE
+      (value as Node).nodeType === (activeWindow?.Node.ELEMENT_NODE ?? 1)
     )
   }
 
