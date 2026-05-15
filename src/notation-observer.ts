@@ -1,28 +1,36 @@
 import type { NotationRenderer } from './notation-renderer'
 
 type RenderNotationAsImages = (notation: HTMLElement) => void
-type ScheduledFlushId = number | ReturnType<typeof setTimeout>
+type ScheduledFlushId = number
 
 export class NotationObserver {
   private mutationObserver: MutationObserver | null = null
   private pendingNodes = new Set<HTMLElement>()
   private rafId: ScheduledFlushId | null = null
 
+  private getActiveWindow(): Window {
+    return this.workspaceContainerEl.ownerDocument.defaultView ?? window
+  }
+
   private scheduleFlush(callback: FrameRequestCallback): ScheduledFlushId {
-    if (typeof globalThis.requestAnimationFrame === 'function') {
-      return globalThis.requestAnimationFrame(callback)
+    const activeWindow = this.getActiveWindow()
+
+    if (typeof activeWindow.requestAnimationFrame === 'function') {
+      return activeWindow.requestAnimationFrame(callback)
     }
 
-    return globalThis.setTimeout(() => callback(0), 0)
+    return activeWindow.setTimeout(() => callback(0), 0)
   }
 
   private cancelScheduledFlush(id: ScheduledFlushId): void {
-    if (typeof id === 'number' && typeof globalThis.cancelAnimationFrame === 'function') {
-      globalThis.cancelAnimationFrame(id)
+    const activeWindow = this.getActiveWindow()
+
+    if (typeof id === 'number' && typeof activeWindow.cancelAnimationFrame === 'function') {
+      activeWindow.cancelAnimationFrame(id)
       return
     }
 
-    globalThis.clearTimeout(id)
+    activeWindow.clearTimeout(id)
   }
 
   constructor(
@@ -104,12 +112,20 @@ export class NotationObserver {
     const maybeInstanceOf = value as {
       instanceOf?: (ctor: typeof HTMLElement) => boolean
     }
+    const activeWindow =
+      this.workspaceContainerEl.ownerDocument?.defaultView ??
+      (typeof window !== 'undefined' ? window : undefined)
 
     if (typeof maybeInstanceOf?.instanceOf === 'function') {
-      return maybeInstanceOf.instanceOf(HTMLElement)
+      return maybeInstanceOf.instanceOf(activeWindow?.HTMLElement ?? HTMLElement)
     }
 
-    return value instanceof HTMLElement
+    return (
+      typeof value === 'object' &&
+      value !== null &&
+      'nodeType' in value &&
+      (value as Node).nodeType === (activeWindow?.Node.ELEMENT_NODE ?? 1)
+    )
   }
 
   private collectNotationNodes(node: HTMLElement): HTMLElement[] {

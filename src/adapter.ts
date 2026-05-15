@@ -192,8 +192,8 @@ export function tokensToColorSegments(
  *
  * Motion and direction tokens are looked up in the canonical SVG map.
  * Button tokens are looked up in the profile button map.
- * Structural tokens (repeat-start, repeat-end) are dropped — the icon
- * renderer does not need grouping markers.
+ * Parentheses are preserved as plain text so count annotations like
+ * `3C(1)` remain readable in icon mode.
  * Everything else becomes a `PlainSegment`.
  */
 export function tokensToImageSegments(
@@ -217,11 +217,6 @@ export function tokensToImageSegments(
   const segments: ImageRenderSegment[] = []
 
   for (const token of tokens) {
-    if (token.type === 'repeat-start' || token.type === 'repeat-end') {
-      // Structural grouping markers are transparent in image mode
-      continue
-    }
-
     if (token.type === 'motion' || token.type === 'direction') {
       const config = motionLookup.get(token.value)
       if (config) {

@@ -1,7 +1,7 @@
 {
 	"id": "combo-colors",
 	"name": "Combo Colors",
-	"version": "1.3.0",
+	"version": "1.3.1",
 	"minAppVersion": "1.2.3",
 	"description": "Automatically apply color to fighting game combo notations.",
 	"author": "Kevin Kickback",

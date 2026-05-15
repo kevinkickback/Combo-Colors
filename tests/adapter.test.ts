@@ -248,12 +248,30 @@ describe('tokensToImageSegments', () => {
     }
   })
 
-  it('drops repeat-start and repeat-end structural tokens', () => {
+  it('preserves repeat-start and repeat-end parentheses as plain text', () => {
     const tokens = parseNotation('(236) x3', { buttonInputs: [] })
     const segments = tokensToImageSegments(tokens, aswProfile)
 
-    expect(segments.every((s) => s.kind !== 'plain' || !['(', ')'].includes(s.text))).toBe(true)
+    const plainText = segments
+      .filter((s) => s.kind === 'plain')
+      .map((s) => s.text)
+      .join('')
+
+    expect(plainText).toContain('(')
+    expect(plainText).toContain(')')
     expect(segments.some((s) => s.kind === 'svg')).toBe(true)
+  })
+
+  it('keeps count-annotation parentheses in icon mode (3C(1))', () => {
+    const tokens = parseNotation('3C(1)', { buttonInputs: ['C'] })
+    const segments = tokensToImageSegments(tokens, aswProfile)
+
+    const plainText = segments
+      .filter((s) => s.kind === 'plain')
+      .map((s) => s.text)
+      .join('')
+
+    expect(plainText).toContain('(1)')
   })
 
   it('emits plain segment for separators', () => {
