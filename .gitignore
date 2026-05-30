@@ -1,6 +1,5 @@
 # vscode
 .vscode
-biome.json
 
 # Intellij
 *.iml

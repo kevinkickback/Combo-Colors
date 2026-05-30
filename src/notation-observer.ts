@@ -13,13 +13,11 @@ export class NotationObserver {
   }
 
   private scheduleFlush(callback: FrameRequestCallback): ScheduledFlushId {
-    const activeWindow = this.getActiveWindow()
-
-    if (typeof activeWindow.requestAnimationFrame === 'function') {
-      return activeWindow.requestAnimationFrame(callback)
+    if (typeof window.requestAnimationFrame === 'function') {
+      return window.requestAnimationFrame(callback)
     }
 
-    return activeWindow.setTimeout(() => callback(0), 0)
+    return window.setTimeout(() => callback(0), 0)
   }
 
   private cancelScheduledFlush(id: ScheduledFlushId): void {
@@ -30,7 +28,7 @@ export class NotationObserver {
       return
     }
 
-    activeWindow.clearTimeout(id)
+    window.clearTimeout(id)
   }
 
   constructor(
