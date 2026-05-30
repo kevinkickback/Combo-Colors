@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Always store JSON with LF so biome passes in CI
+*.json text eol=lf
