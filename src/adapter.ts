@@ -227,8 +227,10 @@ export function tokensToImageSegments(
           alt: config.alt,
           repeat: config.repeat ?? 1,
         })
-        continue
       }
+      // config exists but source is '' (e.g. neutral/5): recognised token, no icon — skip silently.
+      // No config at all: also skip silently (unknown direction/motion).
+      continue
     }
 
     if (token.type === 'button') {
