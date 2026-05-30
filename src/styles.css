@@ -112,23 +112,6 @@ svg.cc-profile-color text {
 	cursor: pointer;
 }
 
-.custom-profile-row {
-	padding: 8px;
-	margin-bottom: 16px;
-	border-radius: 4px;
-	background-color: var(--background-secondary);
-}
-
-.inputs-container {
-	border-radius: 4px;
-}
-
-.inputs-container + .setting-item {
-	margin-bottom: 16px;
-	padding: 0;
-	border: none;
-}
-
 .modal-button-container {
 	margin-top: 16px;
 	display: flex;
@@ -142,18 +125,117 @@ svg.cc-profile-color text {
 	margin: 0;
 }
 
-.custom-profile-row .setting-item {
-	padding: 0.35rem 0;
+/* Edit inputs modal */
+.cc-modal-edit-form {
+	background-color: var(--background-secondary);
+	padding: var(--size-4-2) var(--size-4-4);
+}
+
+.cc-modal-edit-form .setting-item {
 	border: none;
+	box-shadow: none;
+}
+
+.cc-input-list {
+	display: flex;
+	flex-direction: column;
+	max-height: 40vh;
+	overflow-y: auto;
+	margin-bottom: var(--size-4-4);
+}
+
+.cc-input-list-empty {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	text-align: center;
+	padding: var(--size-4-4) 0;
+	margin: 0;
+}
+
+.cc-input-row {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	padding: var(--size-4-2) var(--size-4-3);
+}
+
+.cc-input-row:not(:last-child) {
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.cc-input-swatch {
+	width: 1rem;
+	height: 1rem;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+
+.cc-input-name {
+	font-weight: var(--font-semibold);
+	flex-shrink: 0;
+}
+
+.cc-input-desc {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.cc-input-actions {
+	display: flex;
+	gap: var(--size-4-1);
+	margin-left: auto;
+	flex-shrink: 0;
+}
+
+.cc-input-delete {
+	color: var(--color-red);
+}
+
+/* Hides the disabled delete button for built-in profiles */
+.setting-item button.mod-warning[disabled] {
+	display: none;
+}
+
+/* Strips per-item card styling that themes apply to .setting-item */
+.cc-general-setting.setting-item,
+.cc-color-setting.setting-item {
+	border-radius: 0;
+	box-shadow: none;
+	border: none;
+	margin: 0;
+	position: relative;
+}
+
+.cc-general-setting.setting-item::before,
+.cc-color-setting.setting-item::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: var(--size-4-4);
+	right: var(--size-4-4);
+	height: 1px;
+	background-color: var(--background-modifier-border);
+}
+
+.cc-general-setting.setting-item:first-child::before {
+	display: none;
+}
+
+.general-settings-container {
+	border-radius: var(--radius-m);
+	overflow: hidden;
+	padding: 0;
+	margin-bottom: var(--size-4-4);
 }
 
 .color-settings-container {
-	padding: 0.5em 0.5em 0.75em;
-	margin-top: 0.5em;
-	border-radius: 5px;
-	background-color: var(--background-secondary);
-}
-
-.setting-item button.mod-warning[disabled] {
-	display: none;
+	border: none;
+	overflow: hidden;
+	padding: 0;
+	box-shadow: none;
+	margin-top: 0;
 }

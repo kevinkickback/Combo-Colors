@@ -293,7 +293,9 @@ export class settingsTab extends PluginSettingTab {
       return
     }
 
-    new Setting(containerEl)
+    const generalSection = containerEl.createDiv({ cls: 'general-settings-container' })
+
+    new Setting(generalSection)
       .setName('Notation profile')
       .addButton((button) =>
         button.setIcon('plus').onClick(() => {
@@ -371,8 +373,9 @@ export class settingsTab extends PluginSettingTab {
           frag.appendText(" to the file's frontmatter")
         }),
       )
+      .settingEl.addClass('cc-general-setting')
 
-    new Setting(containerEl)
+    new Setting(generalSection)
       .setName('Icon size')
       .setDesc('Set the size of notation icons')
       .addDropdown((dropdown) => {
@@ -388,8 +391,9 @@ export class settingsTab extends PluginSettingTab {
             this.plugin.updateIconSizes()
           })
       })
+      .settingEl.addClass('cc-general-setting')
 
-    new Setting(containerEl)
+    new Setting(generalSection)
       .setName('Allow natural language')
       .setDesc(
         'Use full-text phrases like "quarter circle forward" (Does NOT disable shorthand notation)',
@@ -401,8 +405,9 @@ export class settingsTab extends PluginSettingTab {
           this.plugin.rerenderPreviewViews()
         })
       })
+      .settingEl.addClass('cc-general-setting')
 
-    new Setting(containerEl)
+    new Setting(generalSection)
       .setName('Color settings')
       .setDesc('Customize the colors for notation text and icons')
       .addButton((button) => {
@@ -416,12 +421,13 @@ export class settingsTab extends PluginSettingTab {
             this.display()
           })
       })
+      .settingEl.addClass('cc-general-setting')
 
     if (!this.plugin.settings.notationColorSettingsExpanded) {
       return
     }
 
-    const colorSection = containerEl.createDiv({ cls: 'color-settings-container' })
+    const colorSection = generalSection.createDiv({ cls: 'color-settings-container' })
 
     new Setting(colorSection)
       .setName('Text color')
@@ -445,6 +451,7 @@ export class settingsTab extends PluginSettingTab {
           this.plugin.updateColorsForProfile(profile)
         })
       })
+      .settingEl.addClass('cc-color-setting')
 
     // Add individual color settings
     for (const input in profileData.desc) {
@@ -480,37 +487,40 @@ export class settingsTab extends PluginSettingTab {
             this.plugin.updateColorsForProfile(profile)
           })
         })
+        .settingEl.addClass('cc-color-setting')
     }
 
     if (!(profile in inputMap)) {
-      new Setting(colorSection).addButton((button) =>
-        button.setButtonText('Edit inputs').onClick(() => {
-          const existingInputs = []
-          for (const name in profileData.desc) {
-            if (!Object.prototype.hasOwnProperty.call(profileData.desc, name)) continue
-            const description = profileData.desc[name]
-            existingInputs.push({
-              name,
-              description,
-              color: profileData.colors[name] || '#000000',
-            })
-          }
+      new Setting(colorSection)
+        .addButton((button) =>
+          button.setButtonText('Edit inputs').onClick(() => {
+            const existingInputs = []
+            for (const name in profileData.desc) {
+              if (!Object.prototype.hasOwnProperty.call(profileData.desc, name)) continue
+              const description = profileData.desc[name]
+              existingInputs.push({
+                name,
+                description,
+                color: profileData.colors[name] || '#000000',
+              })
+            }
 
-          new InputsModal(
-            this.app,
-            async (inputs) => {
-              try {
-                await this.plugin.saveProfileInputs(profile, inputs)
-                this.display()
-              } catch (error) {
-                const message = error instanceof Error ? error.message : 'Could not save inputs'
-                new Notice(message)
-              }
-            },
-            existingInputs,
-          ).open()
-        }),
-      )
+            new InputsModal(
+              this.app,
+              async (inputs) => {
+                try {
+                  await this.plugin.saveProfileInputs(profile, inputs)
+                  this.display()
+                } catch (error) {
+                  const message = error instanceof Error ? error.message : 'Could not save inputs'
+                  new Notice(message)
+                }
+              },
+              existingInputs,
+            ).open()
+          }),
+        )
+        .settingEl.addClass('cc-color-setting')
     }
   }
 
