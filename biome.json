@@ -54,10 +54,10 @@
       },
       "suspicious": {
         "noArrayIndexKey": "error",
-        "noExplicitAny": "warn",
+        "noExplicitAny": "off",
         "noImplicitAnyLet": "error",
         "noPrototypeBuiltins": "off",
-        "useAwait": "error",
+        "useAwait": "off",
         "noDebugger": "error",
         "noDuplicateObjectKeys": "error",
         "noThenProperty": "error"

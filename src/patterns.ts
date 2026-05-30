@@ -160,7 +160,7 @@ export function getMissingCanonicalMotionConfigs(): CanonicalRenderValue[] {
 
 // Generate button inputs based on profile
 export const generateButtonMap = (profile: CustomProfile): ButtonMap => {
-  const buttonMap = new Map()
+  const buttonMap = new Map<string, ButtonConfig>()
 
   const calculateFontSize = (input: string): number => {
     const length = input.length
@@ -200,7 +200,12 @@ export const generateButtonMap = (profile: CustomProfile): ButtonMap => {
 
 // Returns motion and direction SVG configs keyed by canonical parser value (e.g. 'qcf', 'down').
 // Used by the parser adapter to look up SVG configs without alias re-parsing.
+// Built once on first call and cached for the lifetime of the plugin.
+let _canonicalMotionMap: Map<string, MotionConfig> | null = null
+
 export const canonicalMotionMap = (): Map<string, MotionConfig> => {
+  if (_canonicalMotionMap) return _canonicalMotionMap
+
   const missingDefinitions = getMissingCanonicalMotionConfigs()
   if (missingDefinitions.length > 0) {
     throw new Error(`Missing canonical motion configuration(s): ${missingDefinitions.join(', ')}`)
@@ -216,5 +221,6 @@ export const canonicalMotionMap = (): Map<string, MotionConfig> => {
     result.set(definition.value, MOTION_CONFIG_BY_CANONICAL[definition.value])
   }
 
-  return result
+  _canonicalMotionMap = result
+  return _canonicalMotionMap
 }

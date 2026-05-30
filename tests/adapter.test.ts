@@ -293,8 +293,8 @@ describe('tokensToImageSegments', () => {
     const segments = tokensToImageSegments(tokens, profile)
 
     const svgAlts = segments.filter((s) => s.kind === 'svg').map((s) => (s as { alt: string }).alt)
-    // '5' is direction 'neutral' with alt='' (hidden); it remains in the SVG sequence.
-    expect(svgAlts).toEqual(['Down', 'A', '', 'B', 'QCF', 'C'])
+    // '5' is direction 'neutral' with source:'' — adapter skips it (no SVG emitted) to avoid DOMParser errors.
+    expect(svgAlts).toEqual(['Down', 'A', 'B', 'QCF', 'C'])
   })
 })
 

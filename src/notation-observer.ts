@@ -8,10 +8,6 @@ export class NotationObserver {
   private pendingNodes = new Set<HTMLElement>()
   private rafId: ScheduledFlushId | null = null
 
-  private getActiveWindow(): Window {
-    return this.workspaceContainerEl.ownerDocument.defaultView ?? window
-  }
-
   private scheduleFlush(callback: FrameRequestCallback): ScheduledFlushId {
     if (typeof window.requestAnimationFrame === 'function') {
       return window.requestAnimationFrame(callback)
@@ -21,10 +17,8 @@ export class NotationObserver {
   }
 
   private cancelScheduledFlush(id: ScheduledFlushId): void {
-    const activeWindow = this.getActiveWindow()
-
-    if (typeof id === 'number' && typeof activeWindow.cancelAnimationFrame === 'function') {
-      activeWindow.cancelAnimationFrame(id)
+    if (typeof window.cancelAnimationFrame === 'function') {
+      window.cancelAnimationFrame(id)
       return
     }
 

@@ -5,7 +5,7 @@ export interface RerenderOptions {
   profileId?: string
 }
 
-export class RendererCordinator {
+export class RendererCoordinator {
   private readonly metadataChanged = new Map<string, WorkspaceLeaf>()
 
   constructor(private readonly app: App) {}
