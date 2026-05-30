@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
-    "lint": "biome check --write .",
+    "lint": "biome check --write . && eslint src && echo ESLint: no issues",
+    "lint:biome": "biome check --write .",
+    "lint:obsid": "eslint src && echo ESLint: no issues",
     "test": "vitest",
     "test:run": "vitest run",
     "test:watch": "vitest watch",
@@ -18,8 +20,11 @@
   "devDependencies": {
     "@biomejs/biome": "^2.4.15",
     "@types/node": "^22.14.1",
+    "@typescript-eslint/parser": "^8.60.0",
     "@vitest/coverage-v8": "^3.2.4",
     "esbuild": "0.25.2",
+    "eslint": "^9.39.4",
+    "eslint-plugin-obsidianmd": "^0.3.0",
     "jsdom": "^26.1.0",
     "obsidian": "latest",
     "tslib": "2.8.1",

@@ -3,7 +3,7 @@ import { validateAndNormalizeInputs } from './input-validation'
 import { ModeToggle } from './mode-toggle'
 import { NotationObserver } from './notation-observer'
 import { NotationRenderer } from './notation-renderer'
-import { RendererCordinator } from './renderer-cordinator'
+import { RendererCoordinator } from './renderer-coordinator'
 import { mergeSettingsWithDefaults, type Settings, settingsTab } from './settings'
 import { StyleManager } from './style-manager'
 
@@ -19,7 +19,7 @@ export default class comboColors extends Plugin {
 
   private notationRenderer = new NotationRenderer()
   private styleManager!: StyleManager
-  private rerenderCoordinator!: RendererCordinator
+  private rerenderCoordinator!: RendererCoordinator
   private notationObserver!: NotationObserver
   private modeToggle!: ModeToggle
 
@@ -28,7 +28,7 @@ export default class comboColors extends Plugin {
     this.styleElement = createEl('style', { attr: { id: 'dynamic-colors' } })
     workspaceDocument.head.appendChild(this.styleElement)
     this.styleManager = new StyleManager(this.styleElement, this.app.workspace.containerEl)
-    this.rerenderCoordinator = new RendererCordinator(this.app)
+    this.rerenderCoordinator = new RendererCoordinator(this.app)
     this.notationObserver = new NotationObserver(
       this.app.workspace.containerEl,
       this.notationRenderer,
@@ -63,8 +63,8 @@ export default class comboColors extends Plugin {
       (element: HTMLElement, context: MarkdownPostProcessorContext) => {
         const file = context.sourcePath
         const frontmatter = this.app.metadataCache.getCache(file)?.frontmatter
-        const frontmatterProfile = frontmatter?.cc_profile
-        const profileId = frontmatterProfile ? String(frontmatterProfile).trim() : null
+        const frontmatterProfile: unknown = frontmatter?.cc_profile
+        const profileId = typeof frontmatterProfile === 'string' ? frontmatterProfile.trim() : null
         const profile = profileId ? this.settings.profiles[profileId] : null
 
         for (const notation of element.querySelectorAll('.notation')) {
@@ -73,7 +73,7 @@ export default class comboColors extends Plugin {
           const textMode = notation.textContent || ''
 
           if (!profile || !profileId) {
-            notation.textContent = '[ No notation profile in frontmatter ]'
+            notation.setText('[ no notation profile in frontmatter ]')
             notation.addClass('warning')
             continue
           }
@@ -204,9 +204,7 @@ export default class comboColors extends Plugin {
 
     for (const input of validated.inputs) {
       profile.desc[input.name] = input.description
-      const color =
-        previousColors[input.name] === input.color ? previousColors[input.name] : input.color
-      profile.colors[input.name] = color
+      profile.colors[input.name] = previousColors[input.name] ?? input.color
       if (previousColors[input.name] !== input.color) {
         profile.defaultColors[input.name] = input.color
       }
@@ -254,15 +252,15 @@ export default class comboColors extends Plugin {
     return activeWindow ? value instanceof activeWindow.HTMLElement : false
   }
 
-  private isLiteralContextElement(element: Element): boolean {
+  private isLiteralContextElement(element: HTMLElement): boolean {
     if (element.matches('code, pre, kbd, samp, script, style, textarea')) {
       return true
     }
 
     return (
-      element.classList.contains('math') ||
-      element.classList.contains('math-block') ||
-      element.classList.contains('cm-inline-code')
+      element.hasClass('math') ||
+      element.hasClass('math-block') ||
+      element.hasClass('cm-inline-code')
     )
   }
 
@@ -297,7 +295,7 @@ export default class comboColors extends Plugin {
   private replaceNotationSyntax(element: HTMLElement): void {
     const processNode = (node: Node) => {
       if (this.isElementNode(node)) {
-        const currentElement = node as Element
+        const currentElement = node as HTMLElement
         if (this.isLiteralContextElement(currentElement)) {
           return
         }
@@ -305,7 +303,7 @@ export default class comboColors extends Plugin {
 
       if (!this.isTextNode(node)) {
         if (this.isElementNode(node)) {
-          for (const child of node.childNodes) processNode(child)
+          for (const child of [...node.childNodes]) processNode(child)
         }
         return
       }
@@ -322,8 +320,8 @@ export default class comboColors extends Plugin {
         fragment.append(text.slice(lastIndex, match.index))
 
         const notationSpan = element.ownerDocument.createElement('span')
-        notationSpan.className = 'notation'
-        notationSpan.textContent = match[1]
+        notationSpan.addClass('notation')
+        notationSpan.setText(match[1])
         fragment.append(notationSpan)
 
         lastIndex = regex.lastIndex
@@ -336,6 +334,6 @@ export default class comboColors extends Plugin {
       }
     }
 
-    for (const node of element.childNodes) processNode(node)
+    for (const node of [...element.childNodes]) processNode(node)
   }
 }

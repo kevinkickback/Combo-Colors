@@ -232,6 +232,7 @@ export class CustomProfileModal extends Modal {
       .setName('Frontmatter ID')
       .setDesc('Unique identifier used by cc_profile')
       .addText((text) => {
+        // eslint-disable-next-line obsidianmd/ui/sentence-case -- placeholder shows an example profile ID (lowercase by convention)
         text.setPlaceholder('cstm')
         text.onChange((value) => {
           profileId = value
@@ -256,8 +257,12 @@ export class CustomProfileModal extends Modal {
               return
             }
 
-            await this.onSubmit(validation.normalized, profileName.trim())
-            this.close()
+            try {
+              await this.onSubmit(validation.normalized, profileName.trim())
+              this.close()
+            } catch (error) {
+              new Notice(error instanceof Error ? error.message : 'Could not create profile')
+            }
           }),
       )
   }
@@ -294,8 +299,12 @@ export class DeleteProfileModal extends Modal {
           .setButtonText('Delete')
           .setWarning()
           .onClick(async () => {
-            await this.onConfirm()
-            this.close()
+            try {
+              await this.onConfirm()
+              this.close()
+            } catch (error) {
+              new Notice(error instanceof Error ? error.message : 'Could not delete profile')
+            }
           }),
       )
   }

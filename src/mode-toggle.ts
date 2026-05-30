@@ -58,8 +58,7 @@ export class ModeToggle {
     }
 
     if (notations.length > 0 && button) {
-      button.textContent =
-        button.textContent === 'Text notation' ? 'Icon notation' : 'Text notation'
+      button.setText(button.textContent === 'Text notation' ? 'Icon notation' : 'Text notation')
     }
   }
 }

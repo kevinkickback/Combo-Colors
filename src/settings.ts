@@ -396,7 +396,7 @@ export class settingsTab extends PluginSettingTab {
     new Setting(generalSection)
       .setName('Allow natural language')
       .setDesc(
-        'Use full-text phrases like "quarter circle forward" (Does NOT disable shorthand notation)',
+        'Use full-text phrases like "quarter circle forward" (does not disable shorthand notation)',
       )
       .addToggle((toggle) => {
         toggle.setValue(this.plugin.settings.naturalLanguageNotation).onChange(async (value) => {

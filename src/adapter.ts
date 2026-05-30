@@ -219,7 +219,7 @@ export function tokensToImageSegments(
   for (const token of tokens) {
     if (token.type === 'motion' || token.type === 'direction') {
       const config = motionLookup.get(token.value)
-      if (config) {
+      if (config?.source) {
         segments.push({
           kind: 'svg',
           source: config.source,
