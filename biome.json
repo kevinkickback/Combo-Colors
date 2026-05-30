@@ -1,0 +1,104 @@
+{
+  "$schema": "https://biomejs.dev/schemas/latest/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignoreUnknown": true,
+    "includes": [
+      "**",
+      "!.github",
+      "!data",
+      "!dist",
+      "!dist-electron",
+      "!node_modules",
+      "!test-results",
+      "!index.html"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "complexity": {
+        "noStaticOnlyClass": "error"
+      },
+      "a11y": {
+        "noLabelWithoutControl": "error",
+        "useButtonType": "error",
+        "useKeyWithClickEvents": "error",
+        "useSemanticElements": "error"
+      },
+      "correctness": {
+        "noPrecisionLoss": "error",
+        "useExhaustiveDependencies": "warn",
+        "noUnusedImports": "warn"
+      },
+      "security": {
+        "noDangerouslySetInnerHtml": "off"
+      },
+      "style": {
+        "noNonNullAssertion": "error",
+        "useFilenamingConvention": "off",
+        "useConst": "error",
+        "useExponentiationOperator": "error",
+        "useFragmentSyntax": "error"
+      },
+      "suspicious": {
+        "noArrayIndexKey": "error",
+        "noExplicitAny": "warn",
+        "noImplicitAnyLet": "error",
+        "noPrototypeBuiltins": "off",
+        "useAwait": "error",
+        "noDebugger": "error",
+        "noDuplicateObjectKeys": "error",
+        "noThenProperty": "error"
+      }
+    }
+  },
+  "css": {
+    "parser": {
+      "cssModules": false
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "jsxQuoteStyle": "double",
+      "trailingCommas": "all",
+      "semicolons": "asNeeded"
+    }
+  },
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["**/*.test.ts", "**/*.spec.ts", "tests/**"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off",
+            "noExplicitAny": "off"
+          },
+          "style": {
+            "noNonNullAssertion": "off"
+          }
+        }
+      }
+    }
+  ]
+}
