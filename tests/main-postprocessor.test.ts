@@ -21,6 +21,19 @@ function withDom<T>(run: (root: HTMLElement) => T): T {
   ;(globalThis as unknown as { Element: typeof dom.window.Element }).Element = dom.window.Element
   ;(globalThis as unknown as { Text: typeof dom.window.Text }).Text = dom.window.Text
 
+  // Polyfill Obsidian HTMLElement extensions used by the plugin
+  const proto = (dom.window as unknown as { HTMLElement: typeof HTMLElement }).HTMLElement
+    .prototype as unknown as Record<string, unknown>
+  proto.hasClass = function (cls: string) {
+    return (this as HTMLElement).classList.contains(cls)
+  }
+  proto.addClass = function (cls: string) {
+    ;(this as HTMLElement).classList.add(cls)
+  }
+  proto.setText = function (text: string) {
+    ;(this as HTMLElement).textContent = text
+  }
+
   try {
     const root = dom.window.document.querySelector('#root') as HTMLElement
     return run(root)

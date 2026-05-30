@@ -25,7 +25,12 @@ function createNotation(options: { text?: string; imageMode?: boolean }): TestNo
 describe('ModeToggle', () => {
   it('rerenders once when multiple notations toggle back to text mode', () => {
     const notations = [createNotation({ imageMode: true }), createNotation({ imageMode: true })]
-    const button = { textContent: 'Text notation' }
+    const button = {
+      textContent: 'Text notation',
+      setText(text: string) {
+        this.textContent = text
+      },
+    }
 
     const view = Object.create(MarkdownView.prototype) as any
     view.containerEl = {
