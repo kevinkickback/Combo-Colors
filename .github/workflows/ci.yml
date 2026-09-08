@@ -1,16 +1,17 @@
 name: CI
 
 on:
-  push:
-    branches:
-      - dev
   pull_request:
-    branches:
-      - main
+    branches: [dev, main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
 
 jobs:
   check:
-    name: Lint, type-check, and test
+    name: Lint, type-check, test, and build
+    if: '!github.event.pull_request.draft'
     runs-on: ubuntu-latest
 
     steps:
@@ -18,17 +19,84 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
 
       - name: Install dependencies
         run: npm ci
 
       - name: Lint
-        run: npm run lint
+        run: |
+          npx biome ci .
+          npm run lint:obsid
 
       - name: Type-check
         run: npx tsc --noEmit
 
       - name: Test
         run: npm run test:run
+
+      - name: Build
+        run: npm run build
+
+  squash-merge:
+    name: Squash merge dev into main
+    needs: check
+    if: >-
+      github.event.pull_request.base.ref == 'main' &&
+      github.event.pull_request.head.ref == 'dev' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      sha: ${{ steps.merge.outputs.sha }}
+    steps:
+      - name: Merge the checked PR revision
+        id: merge
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const expected = context.payload.pull_request;
+            const { data: pr } = await github.rest.pulls.get({
+              owner, repo, pull_number: expected.number,
+            });
+            if (pr.head.sha !== expected.head.sha) {
+              throw new Error('The PR changed; its latest revision must pass checks before merging.');
+            }
+            if (pr.merged) {
+              core.setOutput('sha', pr.merge_commit_sha);
+              return;
+            }
+            if (pr.state !== 'open' || pr.draft || pr.base.ref !== 'main' ||
+                pr.head.ref !== 'dev' || pr.head.repo.full_name !== `${owner}/${repo}`) {
+              throw new Error('The PR is no longer eligible for automatic merging.');
+            }
+            const { data: base } = await github.rest.repos.getBranch({
+              owner, repo, branch: 'main',
+            });
+            if (base.commit.sha !== expected.base.sha) {
+              throw new Error('main changed during checks; update the PR before retrying.');
+            }
+            const { data: result } = await github.rest.pulls.merge({
+              owner, repo, pull_number: pr.number,
+              merge_method: 'squash', sha: expected.head.sha,
+            });
+            if (!result.merged) throw new Error(result.message);
+            core.setOutput('sha', result.sha);
+
+  release:
+    name: Release merged version
+    needs: squash-merge
+    permissions:
+      contents: write
+      pull-requests: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    uses: ./.github/workflows/release.yml
+    with:
+      source-sha: ${{ needs.squash-merge.outputs.sha }}
