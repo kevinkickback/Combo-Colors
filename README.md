@@ -1,12 +1,6 @@
 # Combo Colors
 ![TXT Mode Sample](assets/header.png)<br>
 
-<p align="center">
-  <em>
-    If you like this plugin check out the <a href="https://github.com/kevinkickback/notation.LABS">standalone app</a> with even more features!
-  </em>
-</p>
-
 ## Installation
 
 **1.** Go to Settings > Community Plugins > Browse<br>
@@ -15,11 +9,10 @@
 
 ## How to Use
 
-**1.** Add the `cc_profile` property to your markdown frontmatter with one of the following values:
+**1.** Add the `cc_profile` property to your file properties using a built-in profile ID or the ID of a custom profile:
    - `asw` - Arc System Works style (Guilty Gear, BlazBlue, etc.)
    - `alt` - Modern Alternative style (DNF Duel, Granblue, etc.)
    - `trd` - Traditional style (Street Fighter, Marvel vs Capcom Infinite, etc.)
-   - `cstm` - Custom profile (see below)
    - **EXAMPLE:** `cc_profile: asw`<br><br>
 
 **2.** Wrap your combo notations with `=:` and `:=` delimiters.<br>
@@ -30,26 +23,21 @@
 
 ## Customization
 
-### Custom Profiles
+### Custom profiles
 **1.** Go to Settings > Community Plugins > Combo Colors<br>
-**2.** Click the "+" button in the Profiles header<br>
-**3.** Enter a display name (e.g. "My Custom Profile") and a unique identifier (e.g. "cstm")<br>
-**4.** Add inputs with the "Edit inputs" button<br>
-**5.** Use your custom profile by adding `cc_profile: cstm` to your frontmatter (replace "cstm" with your chosen ID)
+**2.** Open Profiles, then click the "+" button beside the Active profile menu<br>
+**3.** Enter a display name and Frontmatter ID (for example, "My Custom Profile" and "cstm")<br>
+**4.** Select "Manage" under Profile inputs<br>
+**5.** Add, edit, or remove as many inputs as needed, then select "Save"<br>
+**6.** Use the profile by adding its ID to your file properties (for example, `cc_profile: cstm`)
+
+The trash button beside the Active profile menu deletes the selected custom profile. It is disabled for built-in profiles.
 
 ### Change colors
 **1.** Go to Settings > Community Plugins > Combo Colors<br>
-**2.** Select the desired notation profile<br>
-**3.** Customize using the color picker
-
-## Project layout
-
-- `src/` contains the plugin implementation, with icon registries grouped under `src/icons/` and
-  shared input, profile, record-key, and color rules consolidated in `src/validation.ts`.
-- `assets/` contains repository and bundled SVG/image assets.
-- `tests/` mirrors the source modules and includes release-policy coverage.
-- `scripts/release/` contains versioning and release validation automation.
-- `docs/` contains release notes and the release workflow guide.
+**2.** Open Profiles and select the profile you want to customize<br>
+**3.** Open Colors<br>
+**4.** Choose a text or input color. Use the reset button beside a color to restore its default.
 
 ## Notation Guide
 
@@ -92,7 +80,8 @@
 | `1080` | Triple Circle |
 | `2369` / `tk` | Tiger Knee |
 
-Combo Colors is a general-purpose notation highlighter and icon renderer. For a Tekken-focused Obsidian grammar with loose syntax and stance support, see [Fight Note](https://community.obsidian.md/plugins/fight-note).
+## Notes
 
-## NOTE:
 Combo Colors is intended to be used with reading view. Live preview is not supported.
+
+For a standalone tool with additional features, see [notation.LABS](https://github.com/kevinkickback/notation.LABS).

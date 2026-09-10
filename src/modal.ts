@@ -301,7 +301,8 @@ export class DeleteProfileModal extends Modal {
       .addButton((btn) =>
         btn
           .setButtonText('Delete')
-          .setWarning()
+          .setDestructive()
+          .setCta()
           .onClick(async () => {
             try {
               await this.onConfirm()
@@ -340,7 +341,8 @@ export class ResetSettingsModal extends Modal {
       .addButton((button) =>
         button
           .setButtonText('Reset settings')
-          .setWarning()
+          .setDestructive()
+          .setCta()
           .onClick(async () => {
             try {
               await this.onConfirm()

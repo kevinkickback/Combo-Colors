@@ -1,7 +1,7 @@
 {
   "name": "combo-colors",
-  "version": "1.4.1",
-  "description": "Automatically apply color to fighting game combo notation.",
+  "version": "1.4.2",
+  "description": "Automatically apply color to fighting game combo notations.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
@@ -18,7 +18,7 @@
     "version": "node scripts/release/bump-version.mjs && git add manifest.json versions.json"
   },
   "keywords": [],
-  "author": "",
+  "author": "Kevin Kickback",
   "license": "MIT",
   "devDependencies": {
     "@biomejs/biome": "^2.4.15",
@@ -30,7 +30,7 @@
     "eslint": "^9.39.4",
     "eslint-plugin-obsidianmd": "^0.4.2",
     "jsdom": "^26.1.0",
-    "obsidian": "latest",
+    "obsidian": "^1.13.1",
     "stylelint": "^17.15.0",
     "stylelint-config-obsidianmd": "^0.1.0",
     "tslib": "2.8.1",

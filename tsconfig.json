@@ -11,6 +11,7 @@
     "importHelpers": true,
     "isolatedModules": true,
     "strictNullChecks": true,
+    "skipLibCheck": true,
     "lib": ["DOM", "dom.iterable", "ES5", "ES6", "ES7"]
   },
   "include": ["**/*.ts", "**/*.mts"]

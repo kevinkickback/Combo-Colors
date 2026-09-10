@@ -49,7 +49,7 @@ export class Setting {
       setIcon() {
         return this
       },
-      setWarning() {
+      setDestructive() {
         return this
       },
       setDisabled() {
