@@ -1,6 +1,7 @@
 import { type MarkdownPostProcessorContext, MarkdownView, Plugin } from 'obsidian'
 import { validateAndNormalizeInputs } from './input-validation'
 import { ModeToggle } from './mode-toggle'
+import { NotationGuideModal } from './notation-guide-modal'
 import { NotationObserver } from './notation-observer'
 import { NotationRenderer } from './notation-renderer'
 import { RendererCoordinator } from './renderer-coordinator'
@@ -78,14 +79,7 @@ export default class comboColors extends Plugin {
             continue
           }
 
-          this.notationRenderer.applyTextMode(
-            element,
-            notation,
-            profileId,
-            profile,
-            textMode,
-            this.settings.naturalLanguageNotation,
-          )
+          this.notationRenderer.applyTextMode(element, notation, profileId, profile, textMode)
         }
       },
     )
@@ -125,6 +119,12 @@ export default class comboColors extends Plugin {
       callback: this.modeToggle.toggleNotations,
     })
 
+    this.addCommand({
+      id: 'open-notation-guide',
+      name: 'Open notation guide',
+      callback: () => this.openNotationGuide(),
+    })
+
     this.addSettingTab(new settingsTab(this.app, this))
   }
 
@@ -138,41 +138,33 @@ export default class comboColors extends Plugin {
     this.styleManager.updateIconSizes(this.settings.iconSize)
   }
 
+  openNotationGuide(): void {
+    const profile = this.settings.profiles[this.settings.selectedProfile]
+    new NotationGuideModal(this.app, {
+      name: profile?.name ?? 'Active profile',
+      inputs: profile
+        ? Object.keys(profile.colors).map((name) => ({
+            name,
+            description: profile.desc[name] ?? '',
+          }))
+        : [],
+    }).open()
+  }
+
   private renderNotationAsImages(notation: HTMLElement) {
     this.notationRenderer.renderImageMode(
       notation,
       this.settings.profiles,
-      this.createSvgElement,
-      this.settings.naturalLanguageNotation,
+      this.settings.motionIconStyle,
     )
   }
 
-  private createSvgElement = (
-    span: HTMLElement,
-    config: { class?: string; source: string; alt?: string },
-  ) => {
-    const svgDoc = new DOMParser().parseFromString(config.source, 'image/svg+xml')
-    const sourceViewBox = svgDoc.documentElement.getAttribute('viewBox') || '0 0 100 100'
-    const altText = config.alt?.trim()
-
-    const svg = span.createSvg('svg', {
-      cls: config.class,
-      attr: {
-        xmlns: 'http://www.w3.org/2000/svg',
-        viewBox: sourceViewBox,
-        role: altText ? 'img' : null,
-        'aria-label': altText || null,
-        'aria-hidden': altText ? null : 'true',
-        focusable: 'false',
-      },
-    })
-
-    if (altText) {
-      svg.createEl('title', { text: altText })
+  rerenderImageModeNotations(): void {
+    for (const notation of this.app.workspace.containerEl.querySelectorAll<HTMLElement>(
+      '.notation.imageMode',
+    )) {
+      this.renderNotationAsImages(notation)
     }
-
-    svg.append(...Array.from(svgDoc.documentElement.childNodes))
-    return svg
   }
 
   onunload() {

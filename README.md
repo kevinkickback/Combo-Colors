@@ -25,13 +25,14 @@
 **2.** Wrap your combo notations with `=:` and `:=` delimiters.<br>
    - **EXAMPLE:** `=:2A > 5B > 236C:=`<br><br  >
 
-**3.** (optional) Add `` `comboButton` `` anywhere in your markdown to create a text/image toggle button. You can also use the command palette and search for "Toggle notation icons"
+**3.** (optional) Add `` `comboButton` `` anywhere in your markdown to create a text/image toggle button. You can also use the command palette and search for "Toggle notation icons".<br>
+**4.** Open the complete shorthand reference from Settings > Combo Colors > About, or run "Open notation guide" from the command palette.
 
 ## Customization
 
 ### Custom Profiles
 **1.** Go to Settings > Community Plugins > Combo Colors<br>
-**2.** Click the "+" button next to the profile dropdown<br>
+**2.** Click the "+" button in the Profiles header<br>
 **3.** Enter a display name (e.g. "My Custom Profile") and a unique identifier (e.g. "cstm")<br>
 **4.** Add inputs with the "Edit inputs" button<br>
 **5.** Use your custom profile by adding `cc_profile: cstm` to your frontmatter (replace "cstm" with your chosen ID)
@@ -63,10 +64,10 @@
 | `jc.` | Jump Cancel |
 | `sjc.` | Super Jump Cancel |
 | `dd.` / `22` | Double Down |
-| `back dash` / `44` | Back Dash |
-| `dash` / `66` | Forward Dash |
+| `backdash` / `bb` / `44` | Back Dash |
+| `ff` / `66` | Forward Dash |
 | `CH` | Counter Hit |
-| `[X]` | Hold input |
+| `[2]` / `[b]` / `[A]` | Hold a direction or profile input |
 | `(sequence) xN` | Repeat sequence N amount of times |
 | `(N)` | Hit N of a move or move must deal N amount of hits |
 | `qcf.` / `236` | Quarter Circle Forward |
@@ -77,6 +78,12 @@
 | `hcb.` / `63214` | Half Circle Back |
 | `2qcf.` / `236236` | Double Quarter Circle Forward |
 | `2qcb.` / `214214` | Double Quarter Circle Back |
+| `360` / `spd` | Full Circle |
+| `720` | Double Circle |
+| `1080` | Triple Circle |
+| `2369` / `tk` | Tiger Knee |
+
+Combo Colors is a general-purpose notation highlighter and icon renderer. For a Tekken-focused Obsidian grammar with loose syntax and stance support, see [Fight Note](https://community.obsidian.md/plugins/fight-note).
 
 ## NOTE:
 Combo Colors is intended to be used with reading view. Live preview is not supported.

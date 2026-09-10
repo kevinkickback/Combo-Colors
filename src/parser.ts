@@ -15,13 +15,13 @@ export interface ParserToken {
   type: ParserTokenType
   value: string
   rawValue: string
+  held?: boolean
   repeatCount?: number
   repeatLabel?: string
 }
 
 export interface ParserOptions {
   buttonInputs?: string[]
-  allowNaturalLanguageNotation?: boolean
 }
 
 const WORD_CHAR = /[A-Za-z0-9_]/
@@ -36,23 +36,23 @@ function createSortedAliasEntries<
   T extends {
     value: string
     aliases: readonly string[]
-    naturalLanguageAliases?: readonly string[]
   },
->(
-  definitions: readonly T[],
-  includeNaturalLanguageAliases: boolean,
-): Array<{ alias: string; value: string }> {
+>(definitions: readonly T[]): Array<{ alias: string; value: string }> {
   return definitions
-    .flatMap((definition) => {
-      const aliases = [...definition.aliases]
-      if (includeNaturalLanguageAliases && 'naturalLanguageAliases' in definition) {
-        aliases.push(...(definition.naturalLanguageAliases ?? []))
-      }
-
-      return aliases.map((alias) => ({ alias: alias.toLowerCase(), value: definition.value }))
-    })
+    .flatMap((definition) =>
+      definition.aliases.map((alias) => ({ alias: alias.toLowerCase(), value: definition.value })),
+    )
     .sort((left, right) => right.alias.length - left.alias.length)
 }
+
+const MOTION_ALIAS_ENTRIES = createSortedAliasEntries(MOTION_DEFINITIONS)
+const DIRECTION_ALIAS_ENTRIES = createSortedAliasEntries(DIRECTION_DEFINITIONS)
+const MODIFIER_ALIAS_ENTRIES = createSortedAliasEntries(MODIFIER_DEFINITIONS)
+const DIRECTION_VALUE_BY_ALIAS = new Map(
+  DIRECTION_DEFINITIONS.flatMap((definition) =>
+    definition.aliases.map((alias) => [alias.toLowerCase(), definition.value] as const),
+  ),
+)
 
 function isWordCharacter(char: string | undefined): boolean {
   return typeof char === 'string' && WORD_CHAR.test(char)
@@ -163,7 +163,7 @@ function consumeRepeatSuffix(
   }
 }
 
-function consumeBracketedButton(
+function consumeBracketedInput(
   input: string,
   index: number,
   buttonInputs: Set<string>,
@@ -176,13 +176,27 @@ function consumeBracketedButton(
   const rawValue = input.slice(index, closeIndex + 1)
   const value = input.slice(index + 1, closeIndex)
 
-  if (!buttonInputs.has(value)) return null
+  if (buttonInputs.has(value)) {
+    return {
+      token: {
+        type: 'button',
+        value,
+        rawValue,
+        held: true,
+      },
+      length: rawValue.length,
+    }
+  }
+
+  const direction = DIRECTION_VALUE_BY_ALIAS.get(value.toLowerCase())
+  if (!direction || direction === 'neutral') return null
 
   return {
     token: {
-      type: 'button',
-      value,
+      type: 'direction',
+      value: direction,
       rawValue,
+      held: true,
     },
     length: rawValue.length,
   }
@@ -271,23 +285,9 @@ function consumeModifier(
 export function parseNotation(input: string, options: ParserOptions = {}): ParserToken[] {
   const tokens: ParserToken[] = []
   const buttonInputs = options.buttonInputs ?? []
-  const allowNaturalLanguageNotation = options.allowNaturalLanguageNotation ?? false
   const buttonInputSet = new Set(buttonInputs)
   const sortedButtonInputs = [...buttonInputs].sort((left, right) => right.length - left.length)
   const inputLower = input.toLowerCase()
-
-  const motionAliasEntries = createSortedAliasEntries(
-    MOTION_DEFINITIONS,
-    allowNaturalLanguageNotation,
-  )
-  const directionAliasEntries = createSortedAliasEntries(
-    DIRECTION_DEFINITIONS,
-    allowNaturalLanguageNotation,
-  )
-  const modifierAliasEntries = createSortedAliasEntries(
-    MODIFIER_DEFINITIONS,
-    allowNaturalLanguageNotation,
-  )
 
   let index = 0
   while (index < input.length) {
@@ -341,21 +341,21 @@ export function parseNotation(input: string, options: ParserOptions = {}): Parse
       continue
     }
 
-    const bracketedButton = consumeBracketedButton(input, index, buttonInputSet)
-    if (bracketedButton) {
-      tokens.push(bracketedButton.token)
-      index += bracketedButton.length
+    const bracketedInput = consumeBracketedInput(input, index, buttonInputSet)
+    if (bracketedInput) {
+      tokens.push(bracketedInput.token)
+      index += bracketedInput.length
       continue
     }
 
-    const modifier = consumeModifier(input, index, modifierAliasEntries)
+    const modifier = consumeModifier(input, index, MODIFIER_ALIAS_ENTRIES)
     if (modifier) {
       tokens.push(modifier.token)
       index += modifier.length
       continue
     }
 
-    const motion = consumeAlias(inputLower, input, index, motionAliasEntries, 'motion')
+    const motion = consumeAlias(inputLower, input, index, MOTION_ALIAS_ENTRIES, 'motion')
     if (motion) {
       tokens.push(motion.token)
       index += motion.length
@@ -371,7 +371,7 @@ export function parseNotation(input: string, options: ParserOptions = {}): Parse
       continue
     }
 
-    const direction = consumeAlias(inputLower, input, index, directionAliasEntries, 'direction')
+    const direction = consumeAlias(inputLower, input, index, DIRECTION_ALIAS_ENTRIES, 'direction')
     if (direction) {
       tokens.push(direction.token)
       index += direction.length

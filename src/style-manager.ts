@@ -2,6 +2,12 @@ import { isSafeCssColor } from './color-validation'
 import { validateProfileId } from './profile-validation'
 import type { CustomProfile, Settings } from './settings'
 
+export const ICON_SIZE_PRESETS = {
+  small: { button: '1.2rem', motion: '1.4rem', joystick: '1.55rem', font: '1rem' },
+  medium: { button: '1.75rem', motion: '2rem', joystick: '2.25rem', font: '1.5rem' },
+  large: { button: '2.25rem', motion: '2.5rem', joystick: '2.8125rem', font: '1.75rem' },
+} as const satisfies Record<Settings['iconSize'], Record<string, string>>
+
 function escapeCssIdentifier(token: string): string {
   if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
     return CSS.escape(token)
@@ -71,22 +77,20 @@ export class StyleManager {
         rule instanceof CSSStyleRule &&
         (rule.selectorText === '.buttonIcon' ||
           rule.selectorText === '.motionIcon' ||
+          rule.selectorText === '.cc-motion-icon-group--joystick .motionIcon' ||
           rule.selectorText === '.notation.imageMode')
       ) {
         sheet.deleteRule(i)
       }
     }
 
-    const sizes = {
-      small: { button: '1.2rem', motion: '1.4rem', font: '1rem' },
-      medium: { button: '1.4rem', motion: '1.6rem', font: '1.2rem' },
-      large: { button: '1.8rem', motion: '2.0rem', font: '1.4rem' },
-    }
-
-    const selectedSize = sizes[iconSize]
+    const selectedSize = ICON_SIZE_PRESETS[iconSize]
     sheet.insertRule(`.buttonIcon { height: ${selectedSize.button}; vertical-align: text-bottom; }`)
     sheet.insertRule(
       `.motionIcon { height: ${selectedSize.motion}; vertical-align: text-bottom; margin-left: -0.1rem; }`,
+    )
+    sheet.insertRule(
+      `.cc-motion-icon-group--joystick .motionIcon { height: ${selectedSize.joystick}; }`,
     )
     sheet.insertRule(`.notation.imageMode { font-size: ${selectedSize.font}; }`)
   }

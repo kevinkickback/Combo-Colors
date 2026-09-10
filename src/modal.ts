@@ -314,3 +314,42 @@ export class DeleteProfileModal extends Modal {
     contentEl.empty()
   }
 }
+
+export class ResetSettingsModal extends Modal {
+  constructor(
+    app: App,
+    private readonly onConfirm: () => Promise<void>,
+  ) {
+    super(app)
+  }
+
+  onOpen() {
+    const { contentEl } = this
+    contentEl.empty()
+
+    contentEl.createEl('h2', { text: 'Reset settings' })
+    contentEl.createEl('p', {
+      text: 'Reset all plugin settings, custom profiles, inputs, and colors to their defaults?',
+    })
+
+    new Setting(contentEl)
+      .addButton((button) => button.setButtonText('Cancel').onClick(() => this.close()))
+      .addButton((button) =>
+        button
+          .setButtonText('Reset settings')
+          .setWarning()
+          .onClick(async () => {
+            try {
+              await this.onConfirm()
+              this.close()
+            } catch (error) {
+              new Notice(error instanceof Error ? error.message : 'Could not reset settings')
+            }
+          }),
+      )
+  }
+
+  onClose() {
+    this.contentEl.empty()
+  }
+}

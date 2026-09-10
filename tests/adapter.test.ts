@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { tokensToColorSegments, tokensToImageSegments } from '../src/adapter'
+import {
+  type ImageRenderSegment,
+  tokensToColorSegments,
+  tokensToImageSegments,
+} from '../src/adapter'
 import { parseNotation } from '../src/parser'
 import type { CustomProfile } from '../src/settings'
 
@@ -20,35 +24,19 @@ const trdProfile: CustomProfile = {
   colors: { LP: '#1F8CCC', MP: '#E8982C', HP: '#DE1616' },
 }
 
+function imageAlts(segments: ImageRenderSegment[]): string[] {
+  return segments.flatMap((segment) => {
+    if (segment.kind === 'icon-group') return segment.icons.map((icon) => icon.alt)
+    if (segment.kind === 'button-icon') return [segment.alt]
+    return []
+  })
+}
+
 // ---------------------------------------------------------------------------
 // Color / text mode adapter
 // ---------------------------------------------------------------------------
 
 describe('tokensToColorSegments', () => {
-  it('lets full-text motion inherit button color across spaces', () => {
-    const tokens = parseNotation('quarter circle forward LP', {
-      buttonInputs: ['LP'],
-      allowNaturalLanguageNotation: true,
-    })
-    const segments = tokensToColorSegments(tokens, trdProfile)
-
-    const colored = segments.filter((s) => s.kind === 'colored')
-    expect(colored).toHaveLength(2)
-    expect(colored.map((s) => (s as { input: string }).input)).toEqual(['LP', 'LP'])
-  })
-
-  it('lets full-text modifier phrases inherit button color across spaces', () => {
-    const tokens = parseNotation('super jump LP', {
-      buttonInputs: ['LP'],
-      allowNaturalLanguageNotation: true,
-    })
-    const segments = tokensToColorSegments(tokens, trdProfile)
-
-    const colored = segments.filter((s) => s.kind === 'colored')
-    expect(colored).toHaveLength(2)
-    expect(colored.map((s) => (s as { input: string }).input)).toEqual(['LP', 'LP'])
-  })
-
   it('maps profile button tokens to colored segments', () => {
     const tokens = parseNotation('2A > 5B', { buttonInputs: ['A', 'B'] })
     const segments = tokensToColorSegments(tokens, aswProfile)
@@ -200,52 +188,130 @@ describe('tokensToColorSegments', () => {
 // ---------------------------------------------------------------------------
 
 describe('tokensToImageSegments', () => {
-  it('maps qcf motion token to an SVG segment', () => {
+  it('emits ordered arrow steps for directions and decomposable motions', () => {
+    const cases = [
+      ['2', ['Down']],
+      ['236A', ['Down', 'Down-Forward', 'Forward']],
+      ['623P', ['Forward', 'Down', 'Down-Forward']],
+      ['qcf.LP', ['Down', 'Down-Forward', 'Forward']],
+      ['44', ['Back', 'Back']],
+      ['236236', ['Down', 'Down-Forward', 'Forward', 'Down', 'Down-Forward', 'Forward']],
+    ] as const
+
+    for (const [notation, steps] of cases) {
+      const profile = notation.includes('LP') ? trdProfile : aswProfile
+      const tokens = parseNotation(notation, { buttonInputs: Object.keys(profile.colors) })
+      const group = tokensToImageSegments(tokens, profile, 'arrows').find(
+        (segment) => segment.kind === 'icon-group',
+      )
+      expect(group?.kind).toBe('icon-group')
+      if (group?.kind === 'icon-group') {
+        expect(group.icons.map((icon) => icon.alt)).toEqual(steps)
+      }
+    }
+  })
+
+  it('uses hold assets for bracketed directions in both icon styles', () => {
+    const tokens = parseNotation('[4] 6')
+
+    for (const style of ['joystick', 'arrows'] as const) {
+      const groups = tokensToImageSegments(tokens, aswProfile, style).filter(
+        (segment) => segment.kind === 'icon-group',
+      )
+
+      expect(groups).toHaveLength(2)
+      expect(groups[0]?.kind === 'icon-group' ? groups[0].icons[0]?.alt : undefined).toContain(
+        '(hold)',
+      )
+      expect(groups[1]?.kind === 'icon-group' ? groups[1].icons[0]?.alt : undefined).not.toContain(
+        '(hold)',
+      )
+    }
+  })
+
+  it('renders circular motions entirely as arrows in arrow mode', () => {
+    const tokens = parseNotation('360A > 720B > 1080C', {
+      buttonInputs: ['A', 'B', 'C'],
+    })
+    const segments = tokensToImageSegments(tokens, aswProfile, 'arrows')
+    const groups = segments.filter((segment) => segment.kind === 'icon-group')
+    expect(groups.map((group) => group.icons.length)).toEqual([8, 16, 24])
+    expect(imageAlts(segments).filter((alt) => alt === '360' || alt === '720')).toEqual([])
+    expect(imageAlts(segments).filter((alt) => ['A', 'B', 'C'].includes(alt))).toEqual([
+      'A',
+      'B',
+      'C',
+    ])
+  })
+
+  it('preserves the default joystick segment contract', () => {
+    const tokens = parseNotation('236A', { buttonInputs: ['A'] })
+    expect(tokensToImageSegments(tokens, aswProfile)).toEqual(
+      tokensToImageSegments(tokens, aswProfile, 'joystick'),
+    )
+  })
+
+  it('maps qcf motion token to an icon group', () => {
     const tokens = parseNotation('236', { buttonInputs: [] })
     const segments = tokensToImageSegments(tokens, aswProfile)
 
     expect(segments).toHaveLength(1)
-    expect(segments[0].kind).toBe('svg')
-    if (segments[0].kind === 'svg') {
-      expect(segments[0].alt).toBe('QCF')
-      expect(segments[0].cssClass).toBe('motionIcon')
-      expect(segments[0].repeat).toBe(1)
-      expect(segments[0].source).toContain('<svg')
+    expect(segments[0].kind).toBe('icon-group')
+    if (segments[0].kind === 'icon-group') {
+      expect(segments[0].label).toBe('QCF')
+      expect(segments[0].icons).toHaveLength(1)
+      expect(segments[0].icons[0]?.source).toBeTruthy()
     }
   })
 
-  it('maps a direction token to its SVG segment', () => {
+  it('maps a direction token to its icon group', () => {
     const tokens = parseNotation('2', { buttonInputs: [] })
     const segments = tokensToImageSegments(tokens, aswProfile)
 
     expect(segments).toHaveLength(1)
-    expect(segments[0].kind).toBe('svg')
-    if (segments[0].kind === 'svg') {
-      expect(segments[0].alt).toBe('Down')
+    expect(segments[0].kind).toBe('icon-group')
+    if (segments[0].kind === 'icon-group') {
+      expect(segments[0].label).toBe('Down')
     }
   })
 
-  it('gives doubled motions repeat:2', () => {
+  it('represents doubled motions with two images in one group', () => {
     const tokens = parseNotation('236236', { buttonInputs: [] })
     const segments = tokensToImageSegments(tokens, aswProfile)
 
     expect(segments).toHaveLength(1)
-    if (segments[0].kind === 'svg') {
-      expect(segments[0].repeat).toBe(2)
-      expect(segments[0].alt).toBe('QCF')
+    if (segments[0].kind === 'icon-group') {
+      expect(segments[0].icons).toHaveLength(2)
+      expect(segments[0].label).toBe('QCF')
     }
   })
 
-  it('maps profile button to SVG segment', () => {
+  it('maps profile buttons to dynamic button segments', () => {
     const tokens = parseNotation('A', { buttonInputs: ['A'] })
     const segments = tokensToImageSegments(tokens, aswProfile)
 
     expect(segments).toHaveLength(1)
-    expect(segments[0].kind).toBe('svg')
-    if (segments[0].kind === 'svg') {
+    expect(segments[0].kind).toBe('button-icon')
+    if (segments[0].kind === 'button-icon') {
       expect(segments[0].alt).toBe('A')
-      expect(segments[0].cssClass).toBe('buttonIcon')
+      expect(segments[0].fontSize).toBe(80)
+      expect(segments[0].held).toBe(false)
     }
+  })
+
+  it('marks bracketed profile buttons as held button icons', () => {
+    const tokens = parseNotation('[A]', { buttonInputs: ['A'] })
+    const segments = tokensToImageSegments(tokens, aswProfile)
+
+    expect(segments).toEqual([
+      {
+        kind: 'button-icon',
+        input: 'A',
+        alt: 'A (hold)',
+        fontSize: 80,
+        held: true,
+      },
+    ])
   })
 
   it('preserves repeat-start and repeat-end parentheses as plain text', () => {
@@ -259,7 +325,7 @@ describe('tokensToImageSegments', () => {
 
     expect(plainText).toContain('(')
     expect(plainText).toContain(')')
-    expect(segments.some((s) => s.kind === 'svg')).toBe(true)
+    expect(segments.some((s) => s.kind === 'icon-group')).toBe(true)
   })
 
   it('keeps count-annotation parentheses in icon mode (3C(1))', () => {
@@ -283,7 +349,7 @@ describe('tokensToImageSegments', () => {
   })
 
   // Regression fixture: '2A > 5B > 236C' from README
-  it('fixture: numpad notation maps to correct SVG sequence', () => {
+  it('fixture: numpad notation maps to the correct icon sequence', () => {
     const profile: CustomProfile = {
       name: 'Fixture',
       desc: { A: '', B: '', C: '' },
@@ -292,9 +358,8 @@ describe('tokensToImageSegments', () => {
     const tokens = parseNotation('2A > 5B > 236C', { buttonInputs: ['A', 'B', 'C'] })
     const segments = tokensToImageSegments(tokens, profile)
 
-    const svgAlts = segments.filter((s) => s.kind === 'svg').map((s) => (s as { alt: string }).alt)
-    // '5' is direction 'neutral' with source:'' — adapter skips it (no SVG emitted) to avoid DOMParser errors.
-    expect(svgAlts).toEqual(['Down', 'A', 'B', 'QCF', 'C'])
+    // Neutral has no fixed icon and is skipped.
+    expect(imageAlts(segments)).toEqual(['Down', 'A', 'B', 'QCF', 'C'])
   })
 })
 
@@ -328,18 +393,12 @@ describe('Parser + Adapter integration', () => {
     expect(coloredInputs).toEqual(['LP', 'MP', 'HP'])
   })
 
-  it('renders images for motion-button combos with correct SVG sequence', () => {
+  it('renders motion-button combos in the correct icon sequence', () => {
     const notation = 'qcf.A hcf.B'
     const tokens = parseNotation(notation, { buttonInputs: ['A', 'B'] })
     const segments = tokensToImageSegments(tokens, aswProfile)
 
-    const svgAlts = segments.filter((s) => s.kind === 'svg').map((s) => (s as { alt: string }).alt)
-    // Should have QCF, A, HCF, B as SVG segments (separators become plain)
-    expect(svgAlts.length).toBe(4)
-    expect(svgAlts[0]).toBe('QCF')
-    expect(svgAlts[1]).toBe('A')
-    expect(svgAlts[2]).toBe('HCF')
-    expect(svgAlts[3]).toBe('B')
+    expect(imageAlts(segments)).toEqual(['QCF', 'A', 'HCF', 'B'])
   })
 
   it('preserves non-matching text and handles mixed content', () => {
@@ -360,9 +419,7 @@ describe('Parser + Adapter integration', () => {
     const tokens = parseNotation(notation)
     const segments = tokensToImageSegments(tokens, aswProfile)
 
-    // Should produce at least one SVG segment (the motion qcf)
-    const svgSegments = segments.filter((s) => s.kind === 'svg')
-    expect(svgSegments.length).toBeGreaterThan(0)
+    expect(segments.some((segment) => segment.kind === 'icon-group')).toBe(true)
   })
 
   it('handles empty and whitespace-only input gracefully', () => {
@@ -426,50 +483,44 @@ describe('Parser + Adapter integration', () => {
     expect(coloredInputs).toEqual(['B', 'B', 'B', 'B'])
   })
 
-  it('does NOT render SVG icon for "f" in "feint" comment', () => {
+  it('does NOT render an icon for "f" in "feint" comment', () => {
     // Critical: '22B (feint) > 5[C]' should NOT show a forward direction icon for 'f'
     const tokens = parseNotation('22B (feint) > 5[C]', { buttonInputs: ['B', 'C'] })
     const segments = tokensToImageSegments(tokens, aswProfile)
 
     // Check that no forward direction icon is rendered
-    const forwardIcons = segments.filter((s) => s.kind === 'svg' && s.alt === 'Forward')
-    expect(forwardIcons).toHaveLength(0)
+    expect(imageAlts(segments)).not.toContain('Forward')
 
-    // The 'f' should appear as plain text, not as an SVG segment
+    // The 'f' should appear as plain text, not as an icon segment.
     const plainSegments = segments.filter((s) => s.kind === 'plain')
     const plainText = plainSegments.map((s) => s.text).join('')
     expect(plainText).toContain('f')
   })
 
-  it('does NOT render SVG icon for "3" in isolated repeat count "(3)"', () => {
+  it('does NOT render an icon for "3" in isolated repeat count "(3)"', () => {
     // Critical: '(3)' should NOT show a down-forward direction icon for '3'
     // '3' in parentheses is a repeat count context, not a direction
     const tokens = parseNotation('236A (3)', { buttonInputs: ['A'] })
     const segments = tokensToImageSegments(tokens, aswProfile)
 
     // Check that no down-forward direction icon for '3' is rendered
-    const directionIcons = segments.filter((s) => s.kind === 'svg' && s.alt === 'Down-Forward')
-    expect(directionIcons).toHaveLength(0)
+    expect(imageAlts(segments)).not.toContain('DownForward')
 
-    // The '3' should appear as plain text, not as an SVG segment
+    // The '3' should appear as plain text, not as an icon segment.
     const plainSegments = segments.filter((s) => s.kind === 'plain')
     const plainText = plainSegments.map((s) => s.text).join('')
     expect(plainText).toContain('3')
   })
 
-  it('DOES render SVG icon for "3" in combo context like "(3A)"', () => {
+  it('DOES render an icon for "3" in combo context like "(3A)"', () => {
     // In contrast, '(3A)' should render '3' as a down-forward direction
     // because it's followed by button 'A' (not isolated in parentheses)
     const tokens = parseNotation('(3A)', { buttonInputs: ['A'] })
     const segments = tokensToImageSegments(tokens, aswProfile)
 
-    // Should have down-forward direction and button A as SVG segments
-    const svgSegments = segments.filter((s) => s.kind === 'svg')
-    expect(svgSegments.length).toBeGreaterThanOrEqual(2)
-
-    const svgAlts = svgSegments.map((s) => s.alt)
-    expect(svgAlts).toContain('DownForward') // '3' as direction
-    expect(svgAlts).toContain('A') // Button A
+    const alts = imageAlts(segments)
+    expect(alts).toContain('DownForward')
+    expect(alts).toContain('A')
   })
 
   it('user issue: exact ASW notation with comments and isolated repeat', () => {
@@ -480,13 +531,12 @@ describe('Parser + Adapter integration', () => {
 
     const segments = tokensToImageSegments(tokens, aswProfile)
 
-    // Extract SVG segments with their alt values
-    const svgAlts = segments.filter((s) => s.kind === 'svg').map((s) => s.alt)
-
     // Verify no extra Forward or DownForward icons from comments/isolated digits
     // We expect: DoublDown, B, Neutral, C, DoublQCB, B, QCF, A
     // NOT: Forward (from feint), DownForward (from isolated 3)
-    const unexpectedIcons = svgAlts.filter((alt) => alt === 'Forward' || alt === 'DownForward')
+    const unexpectedIcons = imageAlts(segments).filter(
+      (alt) => alt === 'Forward' || alt === 'DownForward',
+    )
     expect(unexpectedIcons).toHaveLength(0)
 
     // Plain segments should contain the comment and isolated repeat

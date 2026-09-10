@@ -3,6 +3,7 @@ import {
   createDefaultSettings,
   DEFAULT_SETTINGS,
   getProfileInputKeys,
+  getReleaseDate,
   inputMap,
   mergeSettingsWithDefaults,
 } from '../src/settings'
@@ -11,11 +12,17 @@ describe('settings defaults', () => {
   it('uses expected default selected profile and icon size', () => {
     expect(DEFAULT_SETTINGS.selectedProfile).toBe('asw')
     expect(DEFAULT_SETTINGS.iconSize).toBe('medium')
-    expect(DEFAULT_SETTINGS.naturalLanguageNotation).toBe(false)
+    expect(DEFAULT_SETTINGS.motionIconStyle).toBe('joystick')
+    expect(DEFAULT_SETTINGS.settingsLayout).toBe('tabs')
   })
 
   it('includes built-in profile ids', () => {
     expect(Object.keys(DEFAULT_SETTINGS.profiles).sort()).toEqual(['alt', 'asw', 'trd'])
+  })
+
+  it('provides the published release date for the current manifest version', () => {
+    expect(getReleaseDate('1.3.4')).toBe('May 29, 2026')
+    expect(getReleaseDate('unreleased')).toBeUndefined()
   })
 
   it('ensures built-in profiles define matching desc and color keys', () => {
@@ -66,6 +73,20 @@ describe('settings defaults', () => {
     expect(merged.iconSize).toBe('small')
     expect(merged.profiles.asw.colors.A).toBe('#123456')
     expect(DEFAULT_SETTINGS.profiles.asw.colors.A).toBe('#DE1616')
+  })
+
+  it('persists valid motion icon styles and defaults missing or invalid values', () => {
+    expect(mergeSettingsWithDefaults({ motionIconStyle: 'arrows' }).motionIconStyle).toBe('arrows')
+    expect(mergeSettingsWithDefaults({}).motionIconStyle).toBe('joystick')
+    expect(mergeSettingsWithDefaults({ motionIconStyle: 'invalid' }).motionIconStyle).toBe(
+      'joystick',
+    )
+  })
+
+  it('persists valid settings layouts and defaults missing or invalid values', () => {
+    expect(mergeSettingsWithDefaults({ settingsLayout: 'list' }).settingsLayout).toBe('list')
+    expect(mergeSettingsWithDefaults({}).settingsLayout).toBe('tabs')
+    expect(mergeSettingsWithDefaults({ settingsLayout: 'invalid' }).settingsLayout).toBe('tabs')
   })
 
   it('ignores invalid profile ids from persisted settings', () => {
