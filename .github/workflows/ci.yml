@@ -53,6 +53,8 @@ jobs:
       sha: ${{ steps.merge.outputs.sha }}
     steps:
       - name: Wait for optional Copilot review
+        continue-on-error: true
+        timeout-minutes: 4
         uses: actions/github-script@v9
         with:
           script: |
