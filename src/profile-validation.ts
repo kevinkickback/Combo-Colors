@@ -1,6 +1,6 @@
-const PROFILE_ID_REGEX = /^[A-Za-z0-9_-]{1,32}$/
+import { isReservedRecordKey } from './record-key-validation'
 
-const RESERVED_PROFILE_IDS = new Set(['__proto__', 'prototype', 'constructor'])
+const PROFILE_ID_REGEX = /^[A-Za-z0-9_-]{1,32}$/
 
 export interface ProfileIdValidationResult {
   valid: boolean
@@ -31,7 +31,7 @@ export function validateProfileId(profileId: string): ProfileIdValidationResult 
     }
   }
 
-  if (RESERVED_PROFILE_IDS.has(normalized.toLowerCase())) {
+  if (isReservedRecordKey(normalized)) {
     return {
       valid: false,
       normalized,

@@ -3,6 +3,7 @@ import {
   createDefaultSettings,
   DEFAULT_SETTINGS,
   getProfileInputKeys,
+  getReleaseDate,
   inputMap,
   mergeSettingsWithDefaults,
 } from '../src/settings'
@@ -11,11 +12,17 @@ describe('settings defaults', () => {
   it('uses expected default selected profile and icon size', () => {
     expect(DEFAULT_SETTINGS.selectedProfile).toBe('asw')
     expect(DEFAULT_SETTINGS.iconSize).toBe('medium')
-    expect(DEFAULT_SETTINGS.naturalLanguageNotation).toBe(false)
+    expect(DEFAULT_SETTINGS.motionIconStyle).toBe('joystick')
+    expect(DEFAULT_SETTINGS.settingsLayout).toBe('tabs')
   })
 
   it('includes built-in profile ids', () => {
     expect(Object.keys(DEFAULT_SETTINGS.profiles).sort()).toEqual(['alt', 'asw', 'trd'])
+  })
+
+  it('provides the published release date for the current manifest version', () => {
+    expect(getReleaseDate('1.3.4')).toBe('May 29, 2026')
+    expect(getReleaseDate('unreleased')).toBeUndefined()
   })
 
   it('ensures built-in profiles define matching desc and color keys', () => {
@@ -68,6 +75,20 @@ describe('settings defaults', () => {
     expect(DEFAULT_SETTINGS.profiles.asw.colors.A).toBe('#DE1616')
   })
 
+  it('persists valid motion icon styles and defaults missing or invalid values', () => {
+    expect(mergeSettingsWithDefaults({ motionIconStyle: 'arrows' }).motionIconStyle).toBe('arrows')
+    expect(mergeSettingsWithDefaults({}).motionIconStyle).toBe('joystick')
+    expect(mergeSettingsWithDefaults({ motionIconStyle: 'invalid' }).motionIconStyle).toBe(
+      'joystick',
+    )
+  })
+
+  it('persists valid settings layouts and defaults missing or invalid values', () => {
+    expect(mergeSettingsWithDefaults({ settingsLayout: 'list' }).settingsLayout).toBe('list')
+    expect(mergeSettingsWithDefaults({}).settingsLayout).toBe('tabs')
+    expect(mergeSettingsWithDefaults({ settingsLayout: 'invalid' }).settingsLayout).toBe('tabs')
+  })
+
   it('ignores invalid profile ids from persisted settings', () => {
     const merged = mergeSettingsWithDefaults({
       selectedProfile: '__proto__',
@@ -88,6 +109,24 @@ describe('settings defaults', () => {
     expect(Object.keys(merged.profiles)).not.toContain('__proto__')
     expect(merged.profiles.custom_1?.name).toBe('Safe')
     expect(merged.selectedProfile).toBe('asw')
+  })
+
+  it('discards reserved input keys from manually edited persisted data', () => {
+    const persisted = JSON.parse(`{
+      "profiles": {
+        "custom_1": {
+          "name": "Safe",
+          "desc": { "__proto__": "Bad", "A": "Attack" },
+          "colors": { "constructor": "#000000", "A": "#123456" }
+        }
+      }
+    }`)
+    const profile = mergeSettingsWithDefaults(persisted).profiles.custom_1
+
+    expect(Object.prototype.hasOwnProperty.call(profile.desc, '__proto__')).toBe(false)
+    expect(Object.prototype.hasOwnProperty.call(profile.colors, 'constructor')).toBe(false)
+    expect(profile.desc.A).toBe('Attack')
+    expect(profile.colors.A).toBe('#123456')
   })
 
   it('filters invalid persisted colors and falls back for textColor', () => {

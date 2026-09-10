@@ -1,13 +1,8 @@
 import type { App } from 'obsidian'
 import { Modal, Notice, Setting, setIcon } from 'obsidian'
-import { validateAndNormalizeInputs } from './input-validation'
+import { isSafeCssColor } from './color-validation'
+import { type InputConfig, validateAndNormalizeInputs } from './input-validation'
 import { validateProfileId } from './profile-validation'
-
-export interface InputConfig {
-  name: string
-  description: string
-  color: string
-}
 
 export class InputsModal extends Modal {
   private inputs: InputConfig[] = []
@@ -43,7 +38,7 @@ export class InputsModal extends Modal {
       )
     }
 
-    const buttonContainer = contentEl.createDiv({ cls: 'modal-button-container' })
+    const buttonContainer = contentEl.createDiv({ cls: 'cc-modal-button-container' })
     new Setting(buttonContainer)
       .addButton((btn) => btn.setButtonText('Cancel').onClick(() => this.close()))
       .addButton((btn) =>
@@ -142,19 +137,19 @@ export class InputsModal extends Modal {
       list.createEl('p', { text: 'No inputs added yet', cls: 'cc-input-list-empty' })
     }
 
-    for (let i = 0; i < this.inputs.length; i++) {
-      const idx = i
-
-      if (this.editingIndex === idx && this.editingInput !== null) {
+    for (let index = 0; index < this.inputs.length; index++) {
+      if (this.editingIndex === index && this.editingInput !== null) {
         this.renderEditForm(list, this.editingInput)
         continue
       }
 
-      const input = this.inputs[i]
+      const input = this.inputs[index]
       const row = list.createDiv({ cls: 'cc-input-row' })
 
       const swatch = row.createSpan({ cls: 'cc-input-swatch' })
-      swatch.style.backgroundColor = input.color
+      swatch.setCssProps({
+        '--cc-input-swatch-color': isSafeCssColor(input.color) ? input.color.trim() : '#fff',
+      })
       row.createSpan({ cls: 'cc-input-name', text: input.name })
       if (input.description) {
         row.createSpan({ cls: 'cc-input-desc', text: input.description })
@@ -162,23 +157,33 @@ export class InputsModal extends Modal {
 
       const actions = row.createDiv({ cls: 'cc-input-actions' })
 
-      const editBtn = actions.createEl('button', { cls: 'clickable-icon' })
+      const editBtn = actions.createEl('button', {
+        cls: 'clickable-icon',
+        attr: { type: 'button', title: `Edit ${input.name}`, 'aria-label': `Edit ${input.name}` },
+      })
       setIcon(editBtn, 'pencil')
       editBtn.addEventListener('click', () => {
-        this.editingIndex = idx
-        this.editingInput = { ...this.inputs[idx] }
+        this.editingIndex = index
+        this.editingInput = { ...this.inputs[index] }
         this.render()
       })
 
-      const deleteBtn = actions.createEl('button', { cls: 'clickable-icon cc-input-delete' })
+      const deleteBtn = actions.createEl('button', {
+        cls: 'clickable-icon cc-input-delete',
+        attr: {
+          type: 'button',
+          title: `Delete ${input.name}`,
+          'aria-label': `Delete ${input.name}`,
+        },
+      })
       setIcon(deleteBtn, 'trash')
       deleteBtn.addEventListener('click', () => {
-        this.inputs.splice(idx, 1)
+        this.inputs.splice(index, 1)
         if (this.editingIndex !== null) {
-          if (this.editingIndex === idx) {
+          if (this.editingIndex === index) {
             this.editingIndex = null
             this.editingInput = null
-          } else if (idx < this.editingIndex) {
+          } else if (index < this.editingIndex) {
             this.editingIndex--
           }
         }
@@ -196,8 +201,7 @@ export class InputsModal extends Modal {
   }
 
   onClose() {
-    const { contentEl } = this
-    contentEl.empty()
+    this.contentEl.empty()
   }
 }
 
@@ -232,8 +236,7 @@ export class CustomProfileModal extends Modal {
       .setName('Frontmatter ID')
       .setDesc('Unique identifier used by cc_profile')
       .addText((text) => {
-        // eslint-disable-next-line obsidianmd/ui/sentence-case -- placeholder shows an example profile ID (lowercase by convention)
-        text.setPlaceholder('cstm')
+        text.setPlaceholder('Custom-profile')
         text.onChange((value) => {
           profileId = value
         })
@@ -268,15 +271,13 @@ export class CustomProfileModal extends Modal {
   }
 
   onClose() {
-    const { contentEl } = this
-    contentEl.empty()
+    this.contentEl.empty()
   }
 }
 
 export class DeleteProfileModal extends Modal {
   constructor(
     app: App,
-    _profileId: string,
     private readonly profileName: string,
     private readonly onConfirm: () => Promise<void>,
   ) {
@@ -310,7 +311,45 @@ export class DeleteProfileModal extends Modal {
   }
 
   onClose() {
+    this.contentEl.empty()
+  }
+}
+
+export class ResetSettingsModal extends Modal {
+  constructor(
+    app: App,
+    private readonly onConfirm: () => Promise<void>,
+  ) {
+    super(app)
+  }
+
+  onOpen() {
     const { contentEl } = this
     contentEl.empty()
+
+    contentEl.createEl('h2', { text: 'Reset settings' })
+    contentEl.createEl('p', {
+      text: 'Reset all plugin settings, custom profiles, inputs, and colors to their defaults?',
+    })
+
+    new Setting(contentEl)
+      .addButton((button) => button.setButtonText('Cancel').onClick(() => this.close()))
+      .addButton((button) =>
+        button
+          .setButtonText('Reset settings')
+          .setWarning()
+          .onClick(async () => {
+            try {
+              await this.onConfirm()
+              this.close()
+            } catch (error) {
+              new Notice(error instanceof Error ? error.message : 'Could not reset settings')
+            }
+          }),
+      )
+  }
+
+  onClose() {
+    this.contentEl.empty()
   }
 }

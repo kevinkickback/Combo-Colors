@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import comboColors from '../src/main'
+import { installObsidianDomHelpers } from './helpers/obsidian-dom'
 
 const { JSDOM } = require('jsdom') as {
   JSDOM: new (
@@ -15,6 +16,7 @@ const { JSDOM } = require('jsdom') as {
 
 function withDom<T>(run: (root: HTMLElement) => T): T {
   const dom = new JSDOM('<div id="root"></div>')
+  installObsidianDomHelpers(dom.window as Window & typeof globalThis)
   const previousElement = globalThis.Element
   const previousText = globalThis.Text
 
@@ -53,7 +55,7 @@ describe('markdown notation postprocessor', () => {
       }
       plugin.replaceNotationSyntax(root)
 
-      const notations = root.querySelectorAll('.notation')
+      const notations = root.querySelectorAll('.cc-notation')
       expect(notations).toHaveLength(2)
       expect(notations[0]?.textContent).toBe('LP')
       expect(notations[1]?.textContent).toBe('MP')
@@ -73,9 +75,9 @@ describe('markdown notation postprocessor', () => {
       }
       plugin.replaceNotationSyntax(root)
 
-      const notations = root.querySelectorAll('.notation')
+      const notations = root.querySelectorAll('.cc-notation')
       expect(notations).toHaveLength(1)
-      expect(root.querySelector('p .notation')?.textContent).toBe('A')
+      expect(root.querySelector('p .cc-notation')?.textContent).toBe('A')
       expect(root.querySelector('code')?.textContent).toContain('=:B:=')
       expect(root.querySelector('pre')?.textContent).toContain('=:C:=')
     })

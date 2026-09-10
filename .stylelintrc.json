@@ -1,0 +1,11 @@
+{
+  "extends": "stylelint-config-obsidianmd",
+  "rules": {
+    "selector-class-pattern": [
+      "^[a-z][a-z0-9]*(?:(?:--?)[a-z0-9]+)*$",
+      {
+        "message": "Use kebab-case or BEM-style class names"
+      }
+    ]
+  }
+}

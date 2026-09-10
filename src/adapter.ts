@@ -1,6 +1,7 @@
+import { generateButtonIconMap } from './button-icons'
+import { type IconImage, resolveMotionIconGroup } from './motion-icons'
 import type { ParserToken } from './parser'
-import { canonicalMotionMap, generateButtonMap } from './patterns'
-import type { CustomProfile } from './settings'
+import type { CustomProfile, MotionIconStyle } from './settings'
 
 /**
  * A plain-text segment produced by the adapter. Contains the raw source
@@ -13,7 +14,7 @@ export interface PlainSegment {
 
 /**
  * A colored-button segment. Maps to a CSS color span in the rendered output.
- * `input` is the profile button key (e.g. 'LP', 'A') used to derive the CSS class.
+ * `input` is the profile button key (e.g. 'LP', 'A') used to resolve its color.
  * `rawText` is the source text as it appeared (may include brackets like '[A]').
  */
 export interface ColorSegment {
@@ -23,19 +24,26 @@ export interface ColorSegment {
 }
 
 /**
- * An SVG-icon segment. All fields map directly to what `createSvgElement` needs.
- * `repeat` mirrors motion config repeat counts (usually 1, 2 for doubled motions).
+ * A fixed motion-icon group. Both visual styles resolve to this representation.
  */
-export interface SvgSegment {
-  kind: 'svg'
-  source: string
-  cssClass: string
+export interface IconGroupSegment {
+  kind: 'icon-group'
+  label: string
+  icons: IconImage[]
+  iconStyle: MotionIconStyle
+}
+
+/** A profile-defined button rendered as a dynamic inline SVG. */
+export interface ButtonIconSegment {
+  kind: 'button-icon'
+  input: string
   alt: string
-  repeat: number
+  fontSize: number
+  held: boolean
 }
 
 export type RenderSegment = PlainSegment | ColorSegment
-export type ImageRenderSegment = PlainSegment | SvgSegment
+export type ImageRenderSegment = PlainSegment | IconGroupSegment | ButtonIconSegment
 
 /**
  * Converts a token list into render segments for text/color mode.
@@ -190,8 +198,8 @@ export function tokensToColorSegments(
 /**
  * Converts a token list into render segments for image/icon mode.
  *
- * Motion and direction tokens are looked up in the canonical SVG map.
- * Button tokens are looked up in the profile button map.
+ * Motion and direction tokens resolve to a style-independent icon group.
+ * Button tokens are looked up in the profile's generated button definitions.
  * Parentheses are preserved as plain text so count annotations like
  * `3C(1)` remain readable in icon mode.
  * Everything else becomes a `PlainSegment`.
@@ -199,44 +207,37 @@ export function tokensToColorSegments(
 export function tokensToImageSegments(
   tokens: ParserToken[],
   profile: CustomProfile,
+  motionIconStyle: MotionIconStyle = 'joystick',
 ): ImageRenderSegment[] {
-  const motionLookup = canonicalMotionMap()
-
-  // Build button lookup keyed by alt string (which equals the button input key)
-  const buttonLookup = new Map<string, SvgSegment>()
-  for (const [, config] of generateButtonMap(profile)) {
-    buttonLookup.set(config.alt, {
-      kind: 'svg',
-      source: config.source,
-      cssClass: config.class,
-      alt: config.alt,
-      repeat: 1,
-    })
-  }
+  const buttonLookup = generateButtonIconMap(profile)
 
   const segments: ImageRenderSegment[] = []
 
   for (const token of tokens) {
     if (token.type === 'motion' || token.type === 'direction') {
-      const config = motionLookup.get(token.value)
-      if (config?.source) {
+      const group = resolveMotionIconGroup(token.value, motionIconStyle, token.held === true)
+      if (group?.icons.length) {
         segments.push({
-          kind: 'svg',
-          source: config.source,
-          cssClass: config.class,
-          alt: config.alt,
-          repeat: config.repeat ?? 1,
+          kind: 'icon-group',
+          label: group.label,
+          icons: group.icons,
+          iconStyle: motionIconStyle,
         })
       }
-      // config exists but source is '' (e.g. neutral/5): recognised token, no icon — skip silently.
-      // No config at all: also skip silently (unknown direction/motion).
+      // Neutral and unsupported canonical values intentionally emit no icon.
       continue
     }
 
     if (token.type === 'button') {
-      const seg = buttonLookup.get(token.value)
-      if (seg) {
-        segments.push(seg)
+      const definition = buttonLookup.get(token.value)
+      if (definition) {
+        segments.push({
+          kind: 'button-icon',
+          input: token.value,
+          alt: token.held ? `${definition.alt} (hold)` : definition.alt,
+          fontSize: definition.fontSize,
+          held: token.held === true,
+        })
         continue
       }
     }

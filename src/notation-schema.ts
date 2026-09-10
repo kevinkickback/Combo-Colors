@@ -1,120 +1,139 @@
 export interface AliasDefinition {
   value: string
   aliases: readonly string[]
-  naturalLanguageAliases?: readonly string[]
 }
 
 export const DIRECTION_DEFINITIONS = [
   {
     value: 'down-back',
     aliases: ['db', '1'],
-    naturalLanguageAliases: ['down-back', 'down back'],
   },
   {
     value: 'down',
     aliases: ['cr', '2', 'd'],
-    naturalLanguageAliases: ['crouch', 'crouching', 'down'],
   },
   {
     value: 'down-forward',
     aliases: ['df', '3'],
-    naturalLanguageAliases: ['down-forward', 'down forward'],
   },
-  { value: 'back', aliases: ['b', '4'], naturalLanguageAliases: ['back'] },
+  {
+    value: 'back',
+    aliases: ['b', '4'],
+  },
   {
     value: 'neutral',
     aliases: ['st', '5'],
-    naturalLanguageAliases: ['neutral', 'stand', 'standing'],
   },
-  { value: 'forward', aliases: ['f', '6'], naturalLanguageAliases: ['forward'] },
+  {
+    value: 'forward',
+    aliases: ['f', '6'],
+  },
   {
     value: 'up-back',
     aliases: ['ub', '7'],
-    naturalLanguageAliases: ['up-back', 'up back'],
   },
-  { value: 'up', aliases: ['u', '8'], naturalLanguageAliases: ['up'] },
+  {
+    value: 'up',
+    aliases: ['u', '8'],
+  },
   {
     value: 'up-forward',
     aliases: ['uf', '9'],
-    naturalLanguageAliases: ['up-forward', 'up forward'],
   },
 ] as const satisfies readonly AliasDefinition[]
 
 export const MOTION_DEFINITIONS = [
   {
     value: 'double-qcf',
-    aliases: ['2qcf', '236236'],
-    naturalLanguageAliases: ['double quarter circle forward', 'double qcf'],
+    aliases: ['2qcf', 'qcfqcf', '236236'],
   },
   {
     value: 'double-qcb',
-    aliases: ['2qcb', '214214'],
-    naturalLanguageAliases: ['double quarter circle back', 'double qcb'],
+    aliases: ['2qcb', 'qcbqcb', '214214'],
   },
   {
     value: 'hcfb',
     aliases: ['hcfb', '412364'],
-    naturalLanguageAliases: ['half circle forward back'],
   },
   {
     value: 'hcbf',
     aliases: ['hcbf', '632146'],
-    naturalLanguageAliases: ['half circle back forward'],
   },
   {
     value: 'qcf',
     aliases: ['qcf', '236'],
-    naturalLanguageAliases: ['quarter circle forward'],
   },
   {
     value: 'qcb',
     aliases: ['qcb', '214'],
-    naturalLanguageAliases: ['quarter circle back'],
   },
-  { value: 'dp', aliases: ['dp', '623'], naturalLanguageAliases: ['dragon punch'] },
-  { value: 'rdp', aliases: ['rdp', '421'], naturalLanguageAliases: ['reverse dragon punch'] },
+  {
+    value: 'dp',
+    aliases: ['dp', 'srk', 'shoryuken', '623'],
+  },
+  {
+    value: 'rdp',
+    aliases: ['rdp', '421'],
+  },
   {
     value: 'hcf',
     aliases: ['hcf', '41236'],
-    naturalLanguageAliases: ['half circle forward'],
   },
   {
     value: 'hcb',
     aliases: ['hcb', '63214'],
-    naturalLanguageAliases: ['half circle back'],
+  },
+  {
+    value: 'tiger-knee',
+    aliases: ['tk', '2369'],
+  },
+  {
+    value: 'full-circle',
+    aliases: ['spd', '360'],
+  },
+  {
+    value: 'double-circle',
+    aliases: ['720'],
+  },
+  { value: 'triple-circle', aliases: ['1080'] },
+  { value: 'down-up', aliases: ['28'] },
+  { value: 'up-down', aliases: ['82'] },
+  { value: 'back-forward', aliases: ['46'] },
+  { value: 'forward-back', aliases: ['64'] },
+  { value: 'back-down-forward', aliases: ['426'] },
+  { value: 'forward-down-back', aliases: ['624'] },
+  {
+    value: 'forward-down-forward',
+    aliases: ['632'],
   },
   {
     value: 'dash-back',
-    aliases: ['44'],
-    naturalLanguageAliases: ['back dash', 'dash back', 'backdashing'],
+    aliases: ['backdash', 'bb', '44'],
   },
   {
     value: 'dash-forward',
-    aliases: ['66'],
-    naturalLanguageAliases: ['forward dash', 'dash forward', 'dashing', 'dash'],
+    aliases: ['ff', '66'],
   },
   {
     value: 'double-down',
     aliases: ['dd', '22'],
-    naturalLanguageAliases: ['down down', 'double down'],
   },
   {
     value: 'double-up',
     aliases: ['uu', '88'],
-    naturalLanguageAliases: ['up up', 'double jumping'],
   },
 ] as const satisfies readonly AliasDefinition[]
 
 export const MODIFIER_DEFINITIONS = [
-  { value: 'j.', aliases: ['j.'], naturalLanguageAliases: ['jump', 'jumping'] },
-  { value: 'dj.', aliases: ['dj.'], naturalLanguageAliases: ['double jump', 'double jumping'] },
-  { value: 'sj.', aliases: ['sj.'], naturalLanguageAliases: ['super jump', 'super jumping'] },
-  { value: 'jc.', aliases: ['jc.'], naturalLanguageAliases: ['jump cancel'] },
-  { value: 'sjc.', aliases: ['sjc.'], naturalLanguageAliases: ['super jump cancel'] },
+  { value: 'j.', aliases: ['j.'] },
+  { value: 'dj.', aliases: ['dj.'] },
+  { value: 'sj.', aliases: ['sj.'] },
+  { value: 'jc.', aliases: ['jc.'] },
+  { value: 'sjc.', aliases: ['sjc.'] },
   { value: 'dl.', aliases: ['dl.'] },
   { value: 'cl.', aliases: ['cl.'] },
   { value: 'f.', aliases: ['f.'] },
-  { value: 'dd.', aliases: ['dd.'], naturalLanguageAliases: ['double down'] },
+  { value: 'dd.', aliases: ['dd.'] },
   { value: 'ch', aliases: ['ch'] },
   { value: 'whiff', aliases: ['whiff'] },
 ] as const satisfies readonly AliasDefinition[]

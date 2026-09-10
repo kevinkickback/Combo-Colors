@@ -1,5 +1,6 @@
-# vscode
-.vscode
+# VS Code (share extension recommendations, keep personal settings private)
+.vscode/*
+!.vscode/extensions.json
 
 # Intellij
 *.iml
@@ -19,9 +20,6 @@ main.js
 
 # obsidian
 data.json
-
-# docs
-/docs
 
 # Exclude macOS Finder (System Explorer) View States
 .DS_Store

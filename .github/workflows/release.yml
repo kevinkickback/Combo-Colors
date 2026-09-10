@@ -1,26 +1,174 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - "[0-9]+.[0-9]+.[0-9]+"
+  workflow_call:
+    inputs:
+      source-sha:
+        description: Squash merge commit that passed the dev to main PR checks
+        required: true
+        type: string
 
 permissions:
   contents: write
+  pull-requests: read
   id-token: write
   attestations: write
+  artifact-metadata: write
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+env:
+  SOURCE_SHA: ${{ inputs.source-sha }}
 
 jobs:
-  build:
+  detect-version-change:
+    name: Detect version change
     runs-on: ubuntu-latest
-
+    outputs:
+      changed: ${{ steps.version.outputs.changed }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source-sha }}
+          fetch-depth: 0
+
+      - name: Compare package versions
+        id: version
+        shell: bash
+        run: |
+          current_version="$(node -p "require('./package.json').version")"
+          previous_version="$(
+            git show "$SOURCE_SHA^:package.json" |
+              node -e 'let input = ""; process.stdin.on("data", chunk => input += chunk).on("end", () => console.log(JSON.parse(input).version))'
+          )"
+
+          if [[ "$current_version" == "$previous_version" ]]; then
+            echo "Package version remains $current_version; skipping release."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Package version changed from $previous_version to $current_version."
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  validate-release:
+    name: Validate merged release source
+    needs: detect-version-change
+    if: needs.detect-version-change.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.metadata.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source-sha }}
+          fetch-depth: 0
+
+      - name: Require the merged dev to main PR
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          matching_prs="$(
+            gh api "repos/$GITHUB_REPOSITORY/commits/$SOURCE_SHA/pulls" \
+              --jq "[.[] | select(.merged_at != null and .merge_commit_sha == \"$SOURCE_SHA\" and .base.ref == \"main\" and .head.ref == \"dev\" and .head.repo.full_name == \"$GITHUB_REPOSITORY\")] | length"
+          )"
+          if [[ "$matching_prs" -lt 1 ]]; then
+            echo "Commit $SOURCE_SHA did not come from a merged, same-repository dev to main PR." >&2
+            exit 1
+          fi
+
+      - name: Validate Obsidian release metadata
+        id: metadata
+        shell: bash
+        run: |
+          node .github/check-release.mjs
+          version="$(node -p "require('./package.json').version")"
+          previous_version="$(
+            git show "$SOURCE_SHA^:package.json" |
+              node -e 'let input = ""; process.stdin.on("data", chunk => input += chunk).on("end", () => console.log(JSON.parse(input).version))'
+          )"
+
+          CURRENT_VERSION="$version" PREVIOUS_VERSION="$previous_version" node -e '
+            const current = process.env.CURRENT_VERSION.split(".").map(Number);
+            const previous = process.env.PREVIOUS_VERSION.split(".").map(Number);
+            const changedPart = current.findIndex((part, index) => part !== previous[index]);
+            if (changedPart === -1 || current[changedPart] < previous[changedPart]) {
+              throw new Error(`Release version must increase (${previous.join(".")} -> ${current.join(".")}).`);
+            }
+          '
+
+          if existing_sha="$(git rev-list -n 1 "$version" 2>/dev/null)"; then
+            if [[ "$existing_sha" != "$SOURCE_SHA" ]]; then
+              echo "Tag $version already points to $existing_sha instead of $SOURCE_SHA." >&2
+              exit 1
+            fi
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  create-release:
+    name: Create draft release
+    needs: validate-release
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_VERSION: ${{ needs.validate-release.outputs.version }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source-sha }}
+          fetch-depth: 0
+
+      - name: Create version tag
+        shell: bash
+        run: |
+          if existing_sha="$(git rev-list -n 1 "$RELEASE_VERSION" 2>/dev/null)"; then
+            if [[ "$existing_sha" != "$SOURCE_SHA" ]]; then
+              echo "Tag $RELEASE_VERSION already points to $existing_sha instead of $SOURCE_SHA." >&2
+              exit 1
+            fi
+            echo "Reusing existing tag $RELEASE_VERSION."
+          else
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f ref="refs/tags/$RELEASE_VERSION" \
+              -f sha="$SOURCE_SHA"
+          fi
+
+      - name: Prepare release notes
+        run: node .github/check-release.mjs --notes-file release-notes.md
+
+      - name: Create or refresh draft release
+        shell: bash
+        run: |
+          if is_draft="$(gh release view "$RELEASE_VERSION" --json isDraft --jq '.isDraft' 2>/dev/null)"; then
+            if [[ "$is_draft" != "true" ]]; then
+              echo "A published release already exists for $RELEASE_VERSION; refusing to replace it." >&2
+              exit 1
+            fi
+            gh release edit "$RELEASE_VERSION" \
+              --title "$RELEASE_VERSION" --notes-file release-notes.md
+          else
+            gh release create "$RELEASE_VERSION" --draft \
+              --title "$RELEASE_VERSION" --notes-file release-notes.md --verify-tag
+          fi
+
+  build:
+    name: Build, attest, and attach plugin
+    needs: [validate-release, create-release]
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_VERSION: ${{ needs.validate-release.outputs.version }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source-sha }}
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "npm"
+          node-version: "22"
+          cache: npm
 
       - name: Install dependencies
         run: npm ci
@@ -28,40 +176,47 @@ jobs:
       - name: Build plugin
         run: npm run build
 
-      - name: Verify artifact versions match tag
+      - name: Verify release files
+        shell: bash
         run: |
-          TAG="${GITHUB_REF_NAME}"
-          PKG_VERSION=$(node -p "require('./package.json').version")
-          MANIFEST_VERSION=$(node -p "require('./manifest.json').version")
-
-          echo "Tag:      $TAG"
-          echo "package:  $PKG_VERSION"
-          echo "manifest: $MANIFEST_VERSION"
-
-          if [ "$PKG_VERSION" != "$TAG" ]; then
-            echo "ERROR: package.json version ($PKG_VERSION) does not match tag ($TAG)"
-            exit 1
-          fi
-
-          if [ "$MANIFEST_VERSION" != "$TAG" ]; then
-            echo "ERROR: manifest.json version ($MANIFEST_VERSION) does not match tag ($TAG)"
-            exit 1
-          fi
+          for file in main.js manifest.json styles.css; do
+            if [[ ! -s "$file" ]]; then
+              echo "Missing or empty release file: $file" >&2
+              exit 1
+            fi
+          done
 
       - name: Attest build provenance
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest@v4
         with:
           subject-path: |
             main.js
-            styles.css
-
-      - name: Create draft release
-        uses: softprops/action-gh-release@v2
-        with:
-          draft: true
-          name: ${{ github.ref_name }}
-          tag_name: ${{ github.ref_name }}
-          files: |
-            main.js
             manifest.json
             styles.css
+
+      - name: Attach files to draft release
+        run: gh release upload "$RELEASE_VERSION" main.js manifest.json styles.css --clobber
+
+  verify-release:
+    name: Verify draft release artifacts
+    needs: [validate-release, build]
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_VERSION: ${{ needs.validate-release.outputs.version }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Verify draft and required assets
+        shell: bash
+        run: |
+          is_draft="$(gh release view "$RELEASE_VERSION" --json isDraft --jq '.isDraft')"
+          assets="$(gh release view "$RELEASE_VERSION" --json assets --jq '.assets[].name')"
+          if [[ "$is_draft" != "true" ]]; then
+            echo "Release $RELEASE_VERSION is not a draft." >&2
+            exit 1
+          fi
+          for expected in main.js manifest.json styles.css; do
+            if ! grep -Fxq "$expected" <<<"$assets"; then
+              echo "Missing release asset: $expected" >&2
+              exit 1
+            fi
+          done

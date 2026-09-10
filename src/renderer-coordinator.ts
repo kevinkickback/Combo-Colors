@@ -8,25 +8,25 @@ export interface RerenderOptions {
 export class RendererCoordinator {
   private readonly metadataChanged = new Map<string, WorkspaceLeaf>()
 
-  constructor(private readonly app: App) {}
+  constructor(
+    private readonly app: App,
+    private readonly rerenderPreviewViews: (options?: RerenderOptions) => void,
+  ) {}
 
-  onMetadataChanged(file: TFile, rerenderPreviewViews: (options?: RerenderOptions) => void): void {
-    const metadata = this.app.metadataCache.getFileCache(file)
-    if (!metadata?.frontmatter) return
-
+  onMetadataChanged(file: TFile): void {
     for (const leaf of this.app.workspace.getLeavesOfType('markdown')) {
       const view = leaf.view
-      if (!(view instanceof MarkdownView) || view.file !== file) continue
+      if (!(view instanceof MarkdownView) || view.file?.path !== file.path) continue
 
       if (view.getMode() === 'preview') {
-        rerenderPreviewViews({ filePath: file.path })
+        this.rerenderPreviewViews({ filePath: file.path })
       } else if (view.getMode() === 'source') {
         this.metadataChanged.set(file.path, leaf)
       }
     }
   }
 
-  onLayoutChange(rerenderPreviewViews: (options?: RerenderOptions) => void): void {
+  onLayoutChange(): void {
     for (const leaf of this.app.workspace.getLeavesOfType('markdown')) {
       const view = leaf.view
       if (!(view instanceof MarkdownView)) continue
@@ -36,9 +36,13 @@ export class RendererCoordinator {
 
       const matchedLeaf = this.metadataChanged.get(filePath)
       if (matchedLeaf === leaf) {
-        rerenderPreviewViews({ filePath })
+        this.rerenderPreviewViews({ filePath })
         this.metadataChanged.delete(filePath)
       }
     }
+  }
+
+  clear(): void {
+    this.metadataChanged.clear()
   }
 }
