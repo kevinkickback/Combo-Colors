@@ -5,7 +5,7 @@
 * **ADDED:** A comprehensive guide to all supported notation formats, accessible from `Settings > About` or the `Command Palette`.
 * **CHANGED:** Redesigned the settings menu.
 * **CHANGED:** Removed the natural-language option to keep input parsing predictable.
-* **CHANGED:** Increased Medium and Large icon sizes by 25%. Small icons remain unchanged.
+* **CHANGED:** Increased Large icon sizes by 25%. Small and Medium icons remain unchanged.
 * **FIXED:** Corrected the joystick icon used for SPD/360 motions.
 * **FIXED:** Standardized the visible spacing between joystick icons in multi-input motions.
 

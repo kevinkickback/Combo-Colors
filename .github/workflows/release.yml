@@ -43,6 +43,8 @@ jobs:
       - name: Compare package versions
         id: version
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           current_version="$(node -p "require('./package.json').version")"
           previous_version="$(
@@ -51,8 +53,16 @@ jobs:
           )"
 
           if [[ "$current_version" == "$previous_version" ]]; then
-            echo "Package version remains $current_version; skipping release."
-            echo "changed=false" >> "$GITHUB_OUTPUT"
+            if git rev-parse --verify --quiet "refs/tags/$current_version" >/dev/null; then
+              echo "Package version remains $current_version and its tag exists; skipping release."
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+            elif gh release view "$current_version" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              echo "Release $current_version exists without its expected tag; refusing to continue." >&2
+              exit 1
+            else
+              echo "Package version $current_version has no tag or release; recreating its unpublished draft."
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+            fi
           else
             echo "Package version changed from $previous_version to $current_version."
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -97,11 +107,25 @@ jobs:
           )"
 
           CURRENT_VERSION="$version" PREVIOUS_VERSION="$previous_version" node -e '
-            const current = process.env.CURRENT_VERSION.split(".").map(Number);
-            const previous = process.env.PREVIOUS_VERSION.split(".").map(Number);
-            const changedPart = current.findIndex((part, index) => part !== previous[index]);
-            if (changedPart === -1 || current[changedPart] < previous[changedPart]) {
+            const fs = require("node:fs");
+            const parse = (value) => value.split(".").map(Number);
+            const compare = (left, right) => {
+              for (let index = 0; index < 3; index++) {
+                if (left[index] !== right[index]) return left[index] - right[index];
+              }
+              return 0;
+            };
+            const current = parse(process.env.CURRENT_VERSION);
+            const previous = parse(process.env.PREVIOUS_VERSION);
+            if (compare(current, previous) > 0) process.exit(0);
+            if (compare(current, previous) < 0) {
               throw new Error(`Release version must increase (${previous.join(".")} -> ${current.join(".")}).`);
+            }
+            const declared = Object.keys(JSON.parse(fs.readFileSync("versions.json", "utf8")))
+              .filter((candidate) => candidate !== process.env.CURRENT_VERSION)
+              .map(parse);
+            if (declared.some((candidate) => compare(candidate, current) >= 0)) {
+              throw new Error(`Unpublished ${current.join(".")} is not the highest declared plugin version.`);
             }
           '
 
