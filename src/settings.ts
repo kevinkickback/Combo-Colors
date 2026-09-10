@@ -283,6 +283,7 @@ export function mergeSettingsWithDefaults(persistedSettings: unknown): Settings 
 export const DEFAULT_SETTINGS: Settings = createDefaultSettings()
 
 const RELEASE_DATES: Readonly<Record<string, string>> = {
+  '1.4.1': 'September 10, 2026',
   '1.3.4': 'May 29, 2026',
 }
 

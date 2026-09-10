@@ -22,6 +22,8 @@ export class NotationRenderer {
     profile: CustomProfile,
     textMode: string,
   ): void {
+    notation.classList.remove('cc-image-mode', ...ICON_SIZE_CLASSES)
+
     const tokens = parseNotation(textMode, { buttonInputs: getProfileInputKeys(profile) })
     const segments = tokensToColorSegments(tokens, profile)
 

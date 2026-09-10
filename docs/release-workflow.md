@@ -9,12 +9,19 @@ request; short-lived branches should merge into `dev` first.
 CI runs for non-draft pull requests targeting `dev` or `main` and performs Biome formatting checks,
 the official Obsidian JavaScript/TypeScript and CSS lint checks, type checking, tests, and a
 production build. A ready `dev` to `main` PR is squash-merged automatically after the checked
-revision passes. Other pull requests are never auto-merged.
+revision passes and any review conversations are resolved. Other pull requests are never
+auto-merged.
 
-Configure branch protection for `main` to reject direct pushes, allow squash merging, and require
-the **Lint, type-check, and test** check, which also runs the production build. Required reviews can
-remain enabled; GitHub's merge API still honors the repository's merge requirements. Do not require
-the downstream merge or release jobs as pre-merge checks.
+Configure the `main` ruleset to reject direct pushes, allow squash merging, require review
+conversations to be resolved, and require the **Lint, type-check, and test** check, which also runs
+the production build. Enable automatic Copilot review for draft pull requests and new pushes. For a
+ready release PR, the merge job gives a requested Copilot review up to three minutes to finish. It
+continues automatically when the review has no unresolved findings; an unresolved review
+conversation blocks the merge through the repository ruleset. Copilot review remains advisory: its
+approval or completion is not a required check, so removing Copilot access, exhausting its quota,
+or a review timeout cannot block a release indefinitely. Required reviews can remain enabled;
+GitHub's merge API still honors the repository's merge requirements. Do not require the downstream
+merge or release jobs as pre-merge checks.
 
 ## Releasing
 
@@ -40,8 +47,10 @@ the downstream merge or release jobs as pre-merge checks.
 
 5. Commit and push the complete release source, `docs/changelog.md`, and all generated metadata
    (`package.json`, `package-lock.json`, `manifest.json`, and `versions.json`).
-6. Open a ready PR from `dev` to `main`. Once CI and GitHub's merge requirements pass, the workflow
-   squash-merges the exact checked revision.
+6. Open a ready PR from `dev` to `main`. If Copilot reports a valid finding, fix it on `dev`, push the
+   correction, and resolve the original conversation after the new review confirms the change.
+   Once CI and GitHub's merge requirements pass, the workflow squash-merges the exact checked
+   revision. Copilot being unavailable is not a reason to delay the release.
 
 The release workflow compares `package.json` with the squash commit's parent. If the version did
 not change, the PR simply merges and no release is created. If it changed, the workflow:
