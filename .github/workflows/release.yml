@@ -7,6 +7,12 @@ on:
         description: Squash merge commit that passed the dev to main PR checks
         required: true
         type: string
+  workflow_dispatch:
+    inputs:
+      source-sha:
+        description: Existing release commit to rebuild and verify
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -29,7 +35,7 @@ jobs:
     outputs:
       changed: ${{ steps.version.outputs.changed }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ inputs.source-sha }}
           fetch-depth: 0
@@ -60,7 +66,7 @@ jobs:
     outputs:
       version: ${{ steps.metadata.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ inputs.source-sha }}
           fetch-depth: 0
@@ -115,7 +121,7 @@ jobs:
       RELEASE_VERSION: ${{ needs.validate-release.outputs.version }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ inputs.source-sha }}
           fetch-depth: 0
@@ -141,7 +147,7 @@ jobs:
       - name: Create or refresh draft release
         shell: bash
         run: |
-          if is_draft="$(gh release view "$RELEASE_VERSION" --json isDraft --jq '.isDraft' 2>/dev/null)"; then
+          if is_draft="$(gh release view "$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft' 2>/dev/null)"; then
             if [[ "$is_draft" != "true" ]]; then
               echo "A published release already exists for $RELEASE_VERSION; refusing to replace it." >&2
               exit 1
@@ -161,11 +167,11 @@ jobs:
       RELEASE_VERSION: ${{ needs.validate-release.outputs.version }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ inputs.source-sha }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
@@ -208,8 +214,8 @@ jobs:
       - name: Verify draft and required assets
         shell: bash
         run: |
-          is_draft="$(gh release view "$RELEASE_VERSION" --json isDraft --jq '.isDraft')"
-          assets="$(gh release view "$RELEASE_VERSION" --json assets --jq '.assets[].name')"
+          is_draft="$(gh release view "$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft')"
+          assets="$(gh release view "$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')"
           if [[ "$is_draft" != "true" ]]; then
             echo "Release $RELEASE_VERSION is not a draft." >&2
             exit 1
