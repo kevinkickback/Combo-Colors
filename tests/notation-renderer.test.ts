@@ -26,6 +26,23 @@ describe('NotationRenderer arrow mode', () => {
     expect(colored?.style.getPropertyValue('--cc-text-color')).toBe('#fff')
   })
 
+  it('clears image-mode styling when returning to text mode', () => {
+    const dom = new JSDOM('<span class="cc-notation"></span>')
+    installObsidianDomHelpers(dom.window)
+    const notation = dom.window.document.querySelector('.cc-notation') as HTMLElement
+    const renderer = new NotationRenderer()
+
+    renderer.renderImageMode(notation, 'test', 'A', { test: profile }, 'joystick', 'large')
+    expect(notation.classList.contains('cc-image-mode')).toBe(true)
+    expect(notation.classList.contains('cc-icon-size-large')).toBe(true)
+
+    renderer.applyTextMode(notation, 'test', profile, 'A')
+
+    expect(notation.classList.contains('cc-image-mode')).toBe(false)
+    expect(notation.classList.contains('cc-icon-size-large')).toBe(false)
+    expect(notation.querySelector('.cc-profile-color')?.textContent).toBe('A')
+  })
+
   it('renders a non-breaking arrow group with ordered, accessible images', () => {
     const dom = new JSDOM('<span class="cc-notation"></span>')
     installObsidianDomHelpers(dom.window)

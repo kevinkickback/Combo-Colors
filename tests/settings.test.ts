@@ -21,6 +21,7 @@ describe('settings defaults', () => {
   })
 
   it('provides the published release date for the current manifest version', () => {
+    expect(getReleaseDate('1.4.1')).toBe('September 10, 2026')
     expect(getReleaseDate('1.3.4')).toBe('May 29, 2026')
     expect(getReleaseDate('unreleased')).toBeUndefined()
   })

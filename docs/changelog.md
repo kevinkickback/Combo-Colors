@@ -1,4 +1,4 @@
-# v1.4.0
+# v1.4.1
 
 * **ADDED:** Distinct icons for held inputs (directions & buttons).
 * **ADDED:** Choose between joystick and arrow icons for motion inputs.
@@ -8,7 +8,6 @@
 * **CHANGED:** Increased Medium and Large icon sizes by 25%. Small icons remain unchanged.
 * **FIXED:** Corrected the joystick icon used for SPD/360 motions.
 * **FIXED:** Standardized the visible spacing between joystick icons in multi-input motions.
-
 
 # v1.3.4
 
