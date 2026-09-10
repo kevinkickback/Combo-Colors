@@ -47,6 +47,7 @@ jobs:
       !github.event.pull_request.draft
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: write
       pull-requests: write
     outputs:
@@ -54,7 +55,7 @@ jobs:
     steps:
       - name: Wait for optional Copilot review
         continue-on-error: true
-        timeout-minutes: 4
+        timeout-minutes: 11
         uses: actions/github-script@v9
         with:
           script: |
@@ -71,9 +72,12 @@ jobs:
               return copilotLogins.has(login) || (user?.type === 'Bot' && login.includes('copilot'));
             };
             const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
-            const deadline = Date.now() + 180_000;
+            const startedAt = Date.now();
+            const activityGraceDeadline = startedAt + 60_000;
+            const hardDeadline = startedAt + 600_000;
+            let activeReviewSeen = false;
 
-            while (Date.now() < deadline) {
+            while (Date.now() < hardDeadline) {
               const reviews = await github.paginate(github.rest.pulls.listReviews, {
                 owner, repo, pull_number, per_page: 100,
               });
@@ -85,12 +89,31 @@ jobs:
                 return;
               }
 
-              const remaining = deadline - Date.now();
+              const { data: actionRuns } = await github.rest.actions.listWorkflowRunsForRepo({
+                owner, repo, head_sha: expectedHead, per_page: 100,
+              });
+              const reviewIsActive = actionRuns.workflow_runs.some((run) =>
+                run.event === 'dynamic' &&
+                (run.path === 'dynamic/agents/copilot-pull-request-reviewer' ||
+                  run.name === 'Running Copilot Code Review'),
+              );
+
+              if (reviewIsActive && !activeReviewSeen) {
+                activeReviewSeen = true;
+                core.info('Copilot review run detected; waiting for its review of the checked revision.');
+              }
+
+              if (!activeReviewSeen && Date.now() >= activityGraceDeadline) {
+                core.notice('No active Copilot review was detected within one minute; continuing without it.');
+                return;
+              }
+
+              const remaining = hardDeadline - Date.now();
               if (remaining <= 0) break;
               await sleep(Math.min(10_000, remaining));
             }
 
-            core.notice('No Copilot review completed within three minutes; continuing without it.');
+            core.notice('An active Copilot review did not finish within ten minutes; continuing without it.');
 
       - name: Merge the checked PR revision
         id: merge

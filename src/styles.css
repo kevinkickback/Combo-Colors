@@ -32,7 +32,7 @@ svg.cc-button-icon--hold circle.cc-button-hold-ring {
 }
 
 .cc-image-mode.cc-icon-size-medium {
-	font-size: 1.5rem;
+	font-size: 1.2rem;
 }
 
 .cc-image-mode.cc-icon-size-large {
@@ -61,7 +61,7 @@ svg.cc-button-icon--hold circle.cc-button-hold-ring {
 }
 
 .cc-icon-size-medium .cc-button-icon {
-	height: 1.75rem;
+	height: 1.4rem;
 }
 
 .cc-icon-size-large .cc-button-icon {
@@ -73,7 +73,7 @@ svg.cc-button-icon--hold circle.cc-button-hold-ring {
 }
 
 .cc-icon-size-medium .cc-motion-icon {
-	height: 2rem;
+	height: 1.6rem;
 }
 
 .cc-icon-size-large .cc-motion-icon {
@@ -85,7 +85,7 @@ svg.cc-button-icon--hold circle.cc-button-hold-ring {
 }
 
 .cc-icon-size-medium .cc-motion-icon-group--joystick .cc-motion-icon {
-	height: 2.25rem;
+	height: 1.8rem;
 }
 
 .cc-icon-size-large .cc-motion-icon-group--joystick .cc-motion-icon {
@@ -97,7 +97,7 @@ svg.cc-button-icon--hold circle.cc-button-hold-ring {
 }
 
 .cc-icon-size-medium .cc-motion-icon-group--joystick .cc-motion-icon--spd {
-	height: 2rem;
+	height: 1.6rem;
 }
 
 .cc-icon-size-large .cc-motion-icon-group--joystick .cc-motion-icon--spd {

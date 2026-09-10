@@ -15,14 +15,17 @@ auto-merged.
 Configure the `main` ruleset to reject direct pushes, allow squash merging, require review
 conversations to be resolved, and require the **Lint, type-check, and test** check, which also runs
 the production build. Enable automatic Copilot review for draft pull requests and new pushes. For a
-ready release PR, the merge job gives Copilot up to three minutes to finish. It
-continues automatically when the review has no unresolved findings; an unresolved review
-conversation blocks the merge through the repository ruleset. Copilot review remains advisory: its
-approval or completion is not a required check, so removing Copilot access, exhausting its quota,
-or a review timeout cannot block a release indefinitely. The polling window is three minutes and
-the optional step has a four-minute hard timeout to cover API overhead. Required reviews can remain enabled;
-GitHub's merge API still honors the repository's merge requirements. Do not require the downstream
-merge or release jobs as pre-merge checks.
+ready release PR, the merge job first checks for a completed Copilot review of the exact checked
+revision. If none exists, it watches for Copilot's exact-revision dynamic Actions run. It allows one
+minute for that activity to appear and, once detected, waits up to ten minutes total for the
+matching review to finish. It continues automatically when the review has no
+unresolved findings; an unresolved review conversation blocks the merge through the repository
+ruleset. Copilot review remains advisory: its approval or completion is not a required check, so
+removing Copilot access, exhausting its quota, a dynamic-run naming change, or a review
+timeout cannot block a release indefinitely. The optional step has an eleven-minute hard timeout
+to cover polling and API overhead. Required reviews can remain enabled; GitHub's merge API still
+honors the repository's merge requirements. Do not require the downstream merge or release jobs as
+pre-merge checks.
 
 ## Releasing
 
@@ -54,7 +57,10 @@ merge or release jobs as pre-merge checks.
    revision. Copilot being unavailable is not a reason to delay the release.
 
 The release workflow compares `package.json` with the squash commit's parent. If the version did
-not change, the PR simply merges and no release is created. If it changed, the workflow:
+not change and its tag exists, the PR simply merges and no release is created. An intentionally
+deleted, never-published draft can be recreated at the current version only when both its tag and
+GitHub release are absent and it is still the highest version declared in `versions.json`. For
+either a new version or that guarded recovery case, the workflow:
 
 - confirms the squash commit came from a merged same-repository `dev` to `main` PR;
 - requires an increased stable `X.Y.Z` version across `package.json`, both lockfile fields, and
@@ -80,7 +86,9 @@ manually when it is ready.
   fixing release automation through the normal `dev` to `main` process, rerun the **Release**
   workflow from `main` with the original release commit as `source-sha`.
 - If release source validation fails after the version reaches `main`, fix it on `dev` and use a new
-  version in the next `dev` to `main` PR. Do not delete, move, or reuse a released version tag.
+  version in the next `dev` to `main` PR. A never-published draft may instead be deleted together
+  with its tag and recreated through another `dev` to `main` PR. Do not delete, move, or reuse a
+  published version tag.
 
 Validate the current release metadata locally with:
 
