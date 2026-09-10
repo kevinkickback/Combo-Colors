@@ -1,11 +1,11 @@
 import { type MarkdownPostProcessorContext, MarkdownView, Plugin } from 'obsidian'
-import { type InputConfig, validateAndNormalizeInputs } from './input-validation'
 import { ModeToggle } from './mode-toggle'
 import { NotationGuideModal } from './notation-guide-modal'
 import { NotationRenderer } from './notation-renderer'
 import { getObsidianWindow } from './obsidian-dom'
 import { RendererCoordinator, type RerenderOptions } from './renderer-coordinator'
 import { mergeSettingsWithDefaults, type Settings, settingsTab } from './settings'
+import { type InputConfig, validateAndNormalizeInputs } from './validation'
 
 const ELEMENT_NODE = 1
 const TEXT_NODE = 3

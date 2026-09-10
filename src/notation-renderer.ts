@@ -1,5 +1,4 @@
 import { tokensToColorSegments, tokensToImageSegments } from './adapter'
-import { isSafeCssColor } from './color-validation'
 import { getObsidianWindow } from './obsidian-dom'
 import { parseNotation } from './parser'
 import {
@@ -8,6 +7,7 @@ import {
   type MotionIconStyle,
   type Settings,
 } from './settings'
+import { isSafeCssColor } from './validation'
 
 const ICON_SIZE_CLASSES = ['cc-icon-size-small', 'cc-icon-size-medium', 'cc-icon-size-large']
 

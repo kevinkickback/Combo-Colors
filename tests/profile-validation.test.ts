@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeProfileId, validateProfileId } from '../src/profile-validation'
+import { normalizeProfileId, validateProfileId } from '../src/validation'
 
 describe('profile validation', () => {
   it('normalizes profile ids by trimming', () => {

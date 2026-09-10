@@ -6,22 +6,103 @@ import {
   getReleaseDate,
   inputMap,
   mergeSettingsWithDefaults,
+  settingsTab,
 } from '../src/settings'
+
+interface TestSettingDefinition {
+  type?: string
+  heading?: string
+  name?: string
+  items?: TestSettingDefinition[]
+}
+
+function collectDefinitionNames(items: TestSettingDefinition[]): string[] {
+  return items.flatMap((item) => [
+    ...(item.name ? [item.name] : []),
+    ...(item.items ? collectDefinitionNames(item.items) : []),
+  ])
+}
 
 describe('settings defaults', () => {
   it('uses expected default selected profile and icon size', () => {
     expect(DEFAULT_SETTINGS.selectedProfile).toBe('asw')
     expect(DEFAULT_SETTINGS.iconSize).toBe('medium')
     expect(DEFAULT_SETTINGS.motionIconStyle).toBe('joystick')
-    expect(DEFAULT_SETTINGS.settingsLayout).toBe('tabs')
   })
 
   it('includes built-in profile ids', () => {
     expect(Object.keys(DEFAULT_SETTINGS.profiles).sort()).toEqual(['alt', 'asw', 'trd'])
   })
 
+  it('exposes settings to the Obsidian 1.13 settings search', () => {
+    const tab = Object.assign(Object.create(settingsTab.prototype), {
+      plugin: {
+        settings: createDefaultSettings(),
+        manifest: {
+          version: '1.4.2',
+          author: 'Kevin Kickback',
+          minAppVersion: '1.13.1',
+          description: 'Automatically apply color to fighting game combo notations.',
+        },
+      },
+    }) as settingsTab
+    const definitions = tab.getSettingDefinitions() as unknown as TestSettingDefinition[]
+    const names = collectDefinitionNames(definitions)
+
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'Icon size',
+        'Motion icon style',
+        'Reset settings',
+        'Profiles',
+        'Active profile',
+        'Colors',
+        'Text color',
+        'A',
+        'About',
+        'Plugin information',
+        'Notation guide',
+      ]),
+    )
+    expect(names).not.toContain('Project repository')
+    expect(definitions[definitions.length - 1]).toMatchObject({
+      type: 'group',
+      heading: 'Maintenance',
+    })
+  })
+
+  it('does not add a duplicate delete row for custom profiles', () => {
+    const settings = createDefaultSettings()
+    settings.profiles.custom_1 = {
+      name: 'Custom profile',
+      desc: {},
+      colors: {},
+      textColor: '#FFFFFF',
+    }
+    settings.selectedProfile = 'custom_1'
+    const tab = Object.assign(Object.create(settingsTab.prototype), {
+      plugin: {
+        settings,
+        manifest: {
+          version: '1.4.2',
+          author: 'Kevin Kickback',
+          minAppVersion: '1.13.1',
+          description: 'Automatically apply color to fighting game combo notations.',
+        },
+      },
+    }) as settingsTab
+
+    const names = collectDefinitionNames(
+      tab.getSettingDefinitions() as unknown as TestSettingDefinition[],
+    )
+
+    expect(names).toContain('Profile inputs')
+    expect(names).not.toContain('Create profile')
+    expect(names).not.toContain('Delete profile')
+  })
+
   it('provides the published release date for the current manifest version', () => {
-    expect(getReleaseDate('1.4.1')).toBe('September 10, 2026')
+    expect(getReleaseDate('1.4.2')).toBe('September 10, 2026')
     expect(getReleaseDate('1.3.4')).toBe('May 29, 2026')
     expect(getReleaseDate('unreleased')).toBeUndefined()
   })
@@ -82,12 +163,6 @@ describe('settings defaults', () => {
     expect(mergeSettingsWithDefaults({ motionIconStyle: 'invalid' }).motionIconStyle).toBe(
       'joystick',
     )
-  })
-
-  it('persists valid settings layouts and defaults missing or invalid values', () => {
-    expect(mergeSettingsWithDefaults({ settingsLayout: 'list' }).settingsLayout).toBe('list')
-    expect(mergeSettingsWithDefaults({}).settingsLayout).toBe('tabs')
-    expect(mergeSettingsWithDefaults({ settingsLayout: 'invalid' }).settingsLayout).toBe('tabs')
   })
 
   it('ignores invalid profile ids from persisted settings', () => {

@@ -1,8 +1,11 @@
 import type { App } from 'obsidian'
 import { Modal, Notice, Setting, setIcon } from 'obsidian'
-import { isSafeCssColor } from './color-validation'
-import { type InputConfig, validateAndNormalizeInputs } from './input-validation'
-import { validateProfileId } from './profile-validation'
+import {
+  type InputConfig,
+  isSafeCssColor,
+  validateAndNormalizeInputs,
+  validateProfileId,
+} from './validation'
 
 export class InputsModal extends Modal {
   private inputs: InputConfig[] = []
@@ -298,7 +301,8 @@ export class DeleteProfileModal extends Modal {
       .addButton((btn) =>
         btn
           .setButtonText('Delete')
-          .setWarning()
+          .setDestructive()
+          .setCta()
           .onClick(async () => {
             try {
               await this.onConfirm()
@@ -337,7 +341,8 @@ export class ResetSettingsModal extends Modal {
       .addButton((button) =>
         button
           .setButtonText('Reset settings')
-          .setWarning()
+          .setDestructive()
+          .setCta()
           .onClick(async () => {
             try {
               await this.onConfirm()

@@ -127,164 +127,13 @@ svg.cc-button-icon--hold circle.cc-button-hold-ring {
 	border-radius: 5px;
 }
 
-/* Settings styles */
-.cc-settings {
-	--cc-settings-accent: var(--interactive-accent);
+.cc-profile-property {
+	color: var(--text-accent);
 }
 
-.cc-settings-topbar {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 1rem;
-	margin-bottom: 0.75rem;
-}
-
-.cc-settings-title .setting-item,
-.cc-settings-section-header .setting-item {
-	padding: 0;
-	border: 0;
-}
-
-.cc-settings-title .setting-item-description,
-.cc-settings-section-header .setting-item-description {
-	margin-top: 0.2rem;
-	color: var(--text-muted);
-	font-size: var(--font-ui-small);
-}
-
-.cc-settings-main-heading .setting-item-name {
-	font-size: var(--font-ui-large);
-}
-
-.cc-settings-section-heading .setting-item-name {
-	font-size: var(--font-ui-medium);
-}
-
-.cc-settings-layout-toggle {
-	display: inline-flex;
-	flex: none;
-	align-items: center;
-	gap: 0.25rem;
-	padding: 0.25rem;
-	border: 1px solid var(--background-modifier-border);
-	border-radius: var(--radius-m);
-	background: var(--background-secondary);
-}
-
-.cc-settings-layout-button {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 2rem;
-	height: 2rem;
-	padding: 0;
-	border: 1px solid transparent;
-	border-radius: var(--radius-s);
-	background: transparent;
-	color: var(--text-muted);
-	box-shadow: none;
-}
-
-.cc-settings-layout-button:hover,
-.cc-settings-layout-button.is-active {
-	color: var(--text-normal);
-	background: var(--background-modifier-hover);
-}
-
-.cc-settings-layout-button.is-active {
-	border-color: var(--interactive-accent);
-}
-
-.cc-settings-layout-button svg,
-.cc-settings-tab-icon svg {
-	width: 1rem;
-	height: 1rem;
-}
-
-.cc-settings-tabs {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.35rem;
-	padding-bottom: 0.75rem;
-	margin-bottom: 1rem;
-	border-bottom: 1px solid var(--background-modifier-border);
-}
-
-.cc-settings-tab {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.4rem;
-	min-height: 2.15rem;
-	padding: 0.4rem 0.75rem;
-	border: 1px solid var(--background-modifier-border);
-	border-radius: 999px;
-	background: var(--background-secondary);
-	color: var(--text-muted);
-	font: inherit;
-	font-size: var(--font-ui-small);
-	box-shadow: none;
-}
-
-.cc-settings-tab:hover {
-	color: var(--text-normal);
-	background: var(--background-modifier-hover);
-}
-
-.cc-settings-tab.is-active {
-	border-color: var(--interactive-accent);
-	background: color-mix(in srgb, var(--interactive-accent) 14%, var(--background-secondary));
+.cc-about-info-label {
 	color: var(--text-normal);
 	font-weight: var(--font-semibold);
-}
-
-.cc-settings-tab-icon {
-	display: inline-flex;
-	align-items: center;
-}
-
-.cc-settings-panel {
-	animation: cc-settings-panel-in 0.16s ease-out both;
-}
-
-@keyframes cc-settings-panel-in {
-	from {
-		opacity: 0;
-		transform: translateY(3px);
-	}
-
-	to {
-		opacity: 1;
-		transform: translateY(0);
-	}
-}
-
-.cc-settings-list {
-	display: flex;
-	flex-direction: column;
-	gap: 1.5rem;
-}
-
-.cc-settings-section-header {
-	margin-bottom: 0.65rem;
-}
-
-.cc-settings-card {
-	border: 1px solid var(--background-modifier-border);
-	border-radius: var(--radius-l);
-	overflow: hidden;
-	background: var(--background-secondary);
-}
-
-.cc-frontmatter-copy {
-	color: var(--text-accent);
-	font-family: var(--font-monospace);
-	font-size: inherit;
-	cursor: pointer;
-}
-
-.cc-frontmatter-copy:hover {
-	color: var(--text-accent-hover);
 }
 
 .cc-modal-button-container {
@@ -369,43 +218,6 @@ svg.cc-button-icon--hold circle.cc-button-hold-ring {
 
 .cc-input-delete {
 	color: var(--color-red);
-}
-
-.cc-profile-delete-button:not([disabled]) {
-	color: var(--color-red);
-}
-
-/* Strips per-item card styling that themes apply to .setting-item */
-.cc-general-setting.setting-item,
-.cc-color-setting.setting-item {
-	border-radius: 0;
-	box-shadow: none;
-	border: none;
-	margin: 0;
-	position: relative;
-}
-
-.cc-general-setting.setting-item::before,
-.cc-color-setting.setting-item::before {
-	content: '';
-	position: absolute;
-	top: 0;
-	left: var(--size-4-4);
-	right: var(--size-4-4);
-	height: 1px;
-	background-color: var(--background-modifier-border);
-}
-
-.cc-general-setting.setting-item:first-child::before {
-	display: none;
-}
-
-.cc-color-settings-container {
-	border: none;
-	overflow: hidden;
-	padding: 0;
-	box-shadow: none;
-	margin-top: 0;
 }
 
 /* Notation guide modal */
@@ -529,27 +341,7 @@ svg.cc-button-icon--hold circle.cc-button-hold-ring {
 	white-space: nowrap;
 }
 
-@media (prefers-reduced-motion: reduce) {
-	.cc-settings-panel {
-		animation: none;
-	}
-}
-
 @media (width <= 500px) {
-	.cc-settings-topbar {
-		align-items: flex-start;
-		flex-wrap: wrap;
-	}
-
-	.cc-settings-layout-toggle {
-		margin-left: auto;
-	}
-
-	.cc-settings-tab {
-		flex: 1 1 auto;
-		justify-content: center;
-	}
-
 	.cc-notation-guide-modal {
 		width: calc(100vw - 1rem);
 	}

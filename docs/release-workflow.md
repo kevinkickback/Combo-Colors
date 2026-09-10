@@ -46,7 +46,7 @@ pre-merge checks.
    npm run typecheck
    npm run test:run
    npm run build
-   node .github/check-release.mjs
+   node scripts/release/check-release.mjs
    ```
 
 5. Commit and push the complete release source, `docs/changelog.md`, and all generated metadata
@@ -93,7 +93,7 @@ manually when it is ready.
 Validate the current release metadata locally with:
 
 ```bash
-node .github/check-release.mjs
+node scripts/release/check-release.mjs
 ```
 
 The expected draft assets are:

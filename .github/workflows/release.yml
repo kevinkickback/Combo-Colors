@@ -39,6 +39,7 @@ jobs:
         with:
           ref: ${{ inputs.source-sha }}
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Compare package versions
         id: version
@@ -92,6 +93,7 @@ jobs:
         with:
           ref: ${{ inputs.source-sha }}
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Require the merged dev to main PR
         shell: bash
@@ -111,7 +113,7 @@ jobs:
         id: metadata
         shell: bash
         run: |
-          node .github/check-release.mjs
+          node scripts/release/check-release.mjs
           version="$(node -p "require('./package.json').version")"
           previous_version="$(
             git show "$SOURCE_SHA^:package.json" |
@@ -161,6 +163,7 @@ jobs:
         with:
           ref: ${{ inputs.source-sha }}
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Create version tag
         shell: bash
@@ -178,7 +181,7 @@ jobs:
           fi
 
       - name: Prepare release notes
-        run: node .github/check-release.mjs --notes-file release-notes.md
+        run: node scripts/release/check-release.mjs --notes-file release-notes.md
 
       - name: Create or refresh draft release
         shell: bash
@@ -206,6 +209,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ inputs.source-sha }}
+          persist-credentials: false
 
       - uses: actions/setup-node@v7
         with:
