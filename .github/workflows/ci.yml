@@ -26,9 +26,7 @@ jobs:
         run: npm ci
 
       - name: Lint
-        run: |
-          npx biome ci .
-          npm run lint:obsid
+        run: npm run lint
 
       - name: Type-check
         run: npx tsc --noEmit

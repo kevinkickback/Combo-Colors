@@ -6,9 +6,10 @@ request; short-lived branches should merge into `dev` first.
 
 ## CI and merging
 
-CI runs for non-draft pull requests targeting `dev` or `main` and performs linting, type checking,
-tests, and a production build. A ready `dev` to `main` PR is squash-merged automatically after the
-checked revision passes. Other pull requests are never auto-merged.
+CI runs for non-draft pull requests targeting `dev` or `main` and performs Biome formatting checks,
+the official Obsidian JavaScript/TypeScript and CSS lint checks, type checking, tests, and a
+production build. A ready `dev` to `main` PR is squash-merged automatically after the checked
+revision passes. Other pull requests are never auto-merged.
 
 Configure branch protection for `main` to reject direct pushes, allow squash merging, and require
 the **Lint, type-check, test, and build** check. Required reviews can remain enabled; GitHub's merge
@@ -17,16 +18,29 @@ release jobs as pre-merge checks.
 
 ## Releasing
 
-1. On `dev`, update `docs/changelog.md` with a unique `# vX.Y.Z` section and nonempty notes.
-2. Bump the version without creating a tag:
+1. Start from `dev`, ensure it is synchronized with `origin/dev`, and confirm the release contains
+   no unrelated working-tree changes.
+2. Update `docs/changelog.md` with a unique `# vX.Y.Z` section and nonempty user-facing notes.
+3. Bump the version without creating a tag:
 
    ```bash
    npm version X.Y.Z --no-git-tag-version
    ```
 
-3. Commit and push all generated metadata (`package.json`, `package-lock.json`, `manifest.json`, and
-   `versions.json`) plus the changelog.
-4. Open a ready PR from `dev` to `main`. Once CI and GitHub's merge requirements pass, the workflow
+4. Run the local release gate:
+
+   ```bash
+   npm ci
+   npm run lint
+   npm run typecheck
+   npm run test:run
+   npm run build
+   node .github/check-release.mjs
+   ```
+
+5. Commit and push the complete release source, `docs/changelog.md`, and all generated metadata
+   (`package.json`, `package-lock.json`, `manifest.json`, and `versions.json`).
+6. Open a ready PR from `dev` to `main`. Once CI and GitHub's merge requirements pass, the workflow
    squash-merges the exact checked revision.
 
 The release workflow compares `package.json` with the squash commit's parent. If the version did
