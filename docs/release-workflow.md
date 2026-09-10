@@ -66,9 +66,11 @@ manually when it is ready.
 - Do not manually create or push the release tag.
 - Do not manually create the GitHub release.
 - Do not publish a draft until all workflow jobs have completed.
-- A rerun may safely reuse the workflow-created tag and draft; assets are replaced by name.
-- If validation fails after the version reaches `main`, fix it on `dev` and use a new version in the
-  next `dev` to `main` PR. Do not delete and reuse a released version.
+- A rerun may safely reuse the workflow-created tag and draft; assets are replaced by name. After
+  fixing release automation through the normal `dev` to `main` process, rerun the **Release**
+  workflow from `main` with the original release commit as `source-sha`.
+- If release source validation fails after the version reaches `main`, fix it on `dev` and use a new
+  version in the next `dev` to `main` PR. Do not delete, move, or reuse a released version tag.
 
 Validate the current release metadata locally with:
 
