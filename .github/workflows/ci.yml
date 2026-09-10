@@ -61,7 +61,6 @@ jobs:
             const expectedHead = context.payload.pull_request.head.sha;
             const isCopilot = (login) => (login ?? '').toLowerCase().includes('copilot');
             const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
-            let sawPendingRequest = false;
 
             for (let attempt = 0; attempt < 18; attempt += 1) {
               const reviews = await github.paginate(github.rest.pulls.listReviews, {
@@ -75,21 +74,10 @@ jobs:
                 return;
               }
 
-              const { data: requested } = await github.rest.pulls.listRequestedReviewers({
-                owner, repo, pull_number,
-              });
-              const pending = requested.users.some((reviewer) => isCopilot(reviewer.login));
-              sawPendingRequest ||= pending;
-
-              if (!pending && !sawPendingRequest && attempt > 0) {
-                core.notice('Copilot review is not available or was not requested; continuing without it.');
-                return;
-              }
-
               if (attempt < 17) await sleep(10_000);
             }
 
-            core.warning('Copilot review did not complete within three minutes; continuing without it.');
+            core.notice('No Copilot review completed within three minutes; continuing without it.');
 
       - name: Merge the checked PR revision
         id: merge
