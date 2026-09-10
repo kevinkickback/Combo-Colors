@@ -12,9 +12,9 @@ production build. A ready `dev` to `main` PR is squash-merged automatically afte
 revision passes. Other pull requests are never auto-merged.
 
 Configure branch protection for `main` to reject direct pushes, allow squash merging, and require
-the **Lint, type-check, test, and build** check. Required reviews can remain enabled; GitHub's merge
-API still honors the repository's merge requirements. Do not require the downstream merge or
-release jobs as pre-merge checks.
+the **Lint, type-check, and test** check, which also runs the production build. Required reviews can
+remain enabled; GitHub's merge API still honors the repository's merge requirements. Do not require
+the downstream merge or release jobs as pre-merge checks.
 
 ## Releasing
 
