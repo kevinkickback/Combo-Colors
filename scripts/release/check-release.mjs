@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises'
 
-const root = new URL('../', import.meta.url)
+const root = new URL('../../', import.meta.url)
 const readJson = async (path) => JSON.parse(await readFile(new URL(path, root), 'utf8'))
 
 const packageJson = await readJson('package.json')
@@ -42,7 +42,10 @@ const start = starts[0]
 const nextRelease = lines.findIndex(
   (line, index) => index > start && /^# v\d+\.\d+\.\d+\s*$/.test(line.trim()),
 )
-const notes = lines.slice(start + 1, nextRelease === -1 ? undefined : nextRelease).join('\n').trim()
+const notes = lines
+  .slice(start + 1, nextRelease === -1 ? undefined : nextRelease)
+  .join('\n')
+  .trim()
 if (!notes) {
   throw new Error(`Release notes for ${version} are empty.`)
 }

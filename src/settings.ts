@@ -1,10 +1,8 @@
 import type { App, ColorComponent } from 'obsidian'
 import { Notice, PluginSettingTab, Setting, setIcon } from 'obsidian'
-import { isSafeCssColor } from './color-validation'
 import type comboColors from './main'
 import { CustomProfileModal, DeleteProfileModal, InputsModal, ResetSettingsModal } from './modal'
-import { validateProfileId } from './profile-validation'
-import { isReservedRecordKey } from './record-key-validation'
+import { isReservedRecordKey, isSafeCssColor, validateProfileId } from './validation'
 
 export interface CustomProfile {
   name: string

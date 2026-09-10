@@ -28,7 +28,7 @@ export default defineConfig([
       '.github/**',
       'esbuild.config.mjs',
       'vitest.config.mts',
-      'version-bump.mjs',
+      'scripts/**',
     ],
   },
 ])

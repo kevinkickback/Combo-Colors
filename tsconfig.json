@@ -5,6 +5,7 @@
     "module": "ESNext",
     "target": "ES6",
     "allowJs": true,
+    "noEmit": true,
     "noImplicitAny": true,
     "moduleResolution": "bundler",
     "importHelpers": true,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { validateAndNormalizeInputs } from '../src/input-validation'
+import { validateAndNormalizeInputs } from '../src/validation'
 
 describe('validateAndNormalizeInputs', () => {
   it('normalizes names and descriptions via trim', () => {

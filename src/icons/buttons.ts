@@ -1,4 +1,4 @@
-import type { CustomProfile } from './settings'
+import type { CustomProfile } from '../settings'
 
 export interface ButtonIconDefinition {
   alt: string

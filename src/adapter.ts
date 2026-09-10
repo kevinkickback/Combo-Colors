@@ -1,5 +1,5 @@
-import { generateButtonIconMap } from './button-icons'
-import { type IconImage, resolveMotionIconGroup } from './motion-icons'
+import { generateButtonIconMap } from './icons/buttons'
+import { type IconImage, resolveMotionIconGroup } from './icons/motions'
 import type { ParserToken } from './parser'
 import type { CustomProfile, MotionIconStyle } from './settings'
 

@@ -42,6 +42,15 @@
 **2.** Select the desired notation profile<br>
 **3.** Customize using the color picker
 
+## Project layout
+
+- `src/` contains the plugin implementation, with icon registries grouped under `src/icons/` and
+  shared input, profile, record-key, and color rules consolidated in `src/validation.ts`.
+- `assets/` contains repository and bundled SVG/image assets.
+- `tests/` mirrors the source modules and includes release-policy coverage.
+- `scripts/release/` contains versioning and release validation automation.
+- `docs/` contains release notes and the release workflow guide.
+
 ## Notation Guide
 
 | Traditional | Numpad | Mixed |

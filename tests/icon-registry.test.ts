@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { generateButtonIconMap } from '../src/button-icons'
+import { generateButtonIconMap } from '../src/icons/buttons'
 import {
   ARROW_ALT_TEXT,
   type ArrowDirectionValue,
@@ -11,7 +11,7 @@ import {
   resolveMotionIconGroup,
   TAP_ARROW_ICON_MAP,
   TAP_JOYSTICK_ICON_MAP,
-} from '../src/motion-icons'
+} from '../src/icons/motions'
 
 const directions: ArrowDirectionValue[] = [
   'down-back',
