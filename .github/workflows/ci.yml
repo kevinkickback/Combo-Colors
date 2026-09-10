@@ -66,16 +66,19 @@ jobs:
               'copilot-pull-request-reviewer',
               'copilot-pull-request-reviewer[bot]',
             ]);
-            const isCopilot = (login) => copilotLogins.has((login ?? '').toLowerCase());
+            const isCopilot = (user) => {
+              const login = (user?.login ?? '').toLowerCase();
+              return copilotLogins.has(login) || (user?.type === 'Bot' && login.includes('copilot'));
+            };
             const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
             const deadline = Date.now() + 180_000;
 
-            while (true) {
+            while (Date.now() < deadline) {
               const reviews = await github.paginate(github.rest.pulls.listReviews, {
                 owner, repo, pull_number, per_page: 100,
               });
               const reviewedHead = reviews.some((review) =>
-                review.commit_id === expectedHead && isCopilot(review.user?.login),
+                review.commit_id === expectedHead && isCopilot(review.user),
               );
               if (reviewedHead) {
                 core.info(`Copilot reviewed ${expectedHead}; continuing to repository merge checks.`);
