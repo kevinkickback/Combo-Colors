@@ -56,12 +56,24 @@ jobs:
             if git rev-parse --verify --quiet "refs/tags/$current_version" >/dev/null; then
               echo "Package version remains $current_version and its tag exists; skipping release."
               echo "changed=false" >> "$GITHUB_OUTPUT"
-            elif gh release view "$current_version" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-              echo "Release $current_version exists without its expected tag; refusing to continue." >&2
-              exit 1
             else
-              echo "Package version $current_version has no tag or release; recreating its unpublished draft."
-              echo "changed=true" >> "$GITHUB_OUTPUT"
+              repo_owner="${GITHUB_REPOSITORY%%/*}"
+              repo_name="${GITHUB_REPOSITORY#*/}"
+              if ! release_id="$(
+                gh api graphql \
+                  -f query='query($owner: String!, $name: String!, $tag: String!) { repository(owner: $owner, name: $name) { release(tagName: $tag) { id } } }' \
+                  -f owner="$repo_owner" -f name="$repo_name" -f tag="$current_version" \
+                  --jq '.data.repository.release.id // empty'
+              )"; then
+                echo "Could not determine whether release $current_version exists; refusing to continue." >&2
+                exit 1
+              elif [[ -n "$release_id" ]]; then
+                echo "Release $current_version exists without its expected tag; refusing to continue." >&2
+                exit 1
+              else
+                echo "Package version $current_version has no tag or release; recreating its unpublished draft."
+                echo "changed=true" >> "$GITHUB_OUTPUT"
+              fi
             fi
           else
             echo "Package version changed from $previous_version to $current_version."

@@ -16,12 +16,12 @@ Configure the `main` ruleset to reject direct pushes, allow squash merging, requ
 conversations to be resolved, and require the **Lint, type-check, and test** check, which also runs
 the production build. Enable automatic Copilot review for draft pull requests and new pushes. For a
 ready release PR, the merge job first checks for a completed Copilot review of the exact checked
-revision. If none exists, it watches the pull-request timeline for a Copilot review request or work
-start. It allows one minute for that activity to appear and, once detected, waits up to ten minutes
-total for the matching review to finish. It continues automatically when the review has no
+revision. If none exists, it watches for Copilot's exact-revision dynamic Actions run. It allows one
+minute for that activity to appear and, once detected, waits up to ten minutes total for the
+matching review to finish. It continues automatically when the review has no
 unresolved findings; an unresolved review conversation blocks the merge through the repository
 ruleset. Copilot review remains advisory: its approval or completion is not a required check, so
-removing Copilot access, exhausting its quota, an undocumented timeline-event change, or a review
+removing Copilot access, exhausting its quota, a dynamic-run naming change, or a review
 timeout cannot block a release indefinitely. The optional step has an eleven-minute hard timeout
 to cover polling and API overhead. Required reviews can remain enabled; GitHub's merge API still
 honors the repository's merge requirements. Do not require the downstream merge or release jobs as

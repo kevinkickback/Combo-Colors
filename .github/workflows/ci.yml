@@ -47,8 +47,8 @@ jobs:
       !github.event.pull_request.draft
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: write
-      issues: read
       pull-requests: write
     outputs:
       sha: ${{ steps.merge.outputs.sha }}
@@ -89,31 +89,18 @@ jobs:
                 return;
               }
 
-              const timeline = await github.paginate(github.rest.issues.listEventsForTimeline, {
-                owner, repo, issue_number: pull_number, per_page: 100,
+              const { data: actionRuns } = await github.rest.actions.listWorkflowRunsForRepo({
+                owner, repo, head_sha: expectedHead, per_page: 100,
               });
-              const copilotActivityTimes = timeline.flatMap((event) => {
-                const requestedCopilot =
-                  event.event === 'review_requested' && isCopilot(event.requested_reviewer);
-                const copilotStarted =
-                  event.event === 'copilot_work_started' &&
-                  event.performed_via_github_app?.slug === 'copilot-pull-request-reviewer';
-                const timestamp = Date.parse(event.created_at ?? '');
-                return (requestedCopilot || copilotStarted) && Number.isFinite(timestamp)
-                  ? [timestamp]
-                  : [];
-              });
-              const copilotCompletionTimes = reviews.flatMap((review) => {
-                const timestamp = Date.parse(review.submitted_at ?? '');
-                return isCopilot(review.user) && Number.isFinite(timestamp) ? [timestamp] : [];
-              });
-              const latestActivity = Math.max(0, ...copilotActivityTimes);
-              const latestCompletion = Math.max(0, ...copilotCompletionTimes);
-              const reviewIsActive = latestActivity > latestCompletion;
+              const reviewIsActive = actionRuns.workflow_runs.some((run) =>
+                run.event === 'dynamic' &&
+                (run.path === 'dynamic/agents/copilot-pull-request-reviewer' ||
+                  run.name === 'Running Copilot Code Review'),
+              );
 
               if (reviewIsActive && !activeReviewSeen) {
                 activeReviewSeen = true;
-                core.info('Copilot review activity detected; waiting for its review of the checked revision.');
+                core.info('Copilot review run detected; waiting for its review of the checked revision.');
               }
 
               if (!activeReviewSeen && Date.now() >= activityGraceDeadline) {
