@@ -4,6 +4,7 @@ import { isSafeCssColor } from './color-validation'
 import type comboColors from './main'
 import { CustomProfileModal, DeleteProfileModal, InputsModal, ResetSettingsModal } from './modal'
 import { validateProfileId } from './profile-validation'
+import { isReservedRecordKey } from './record-key-validation'
 
 export interface CustomProfile {
   name: string
@@ -145,9 +146,7 @@ export function cloneProfiles(
   profiles: Record<string, CustomProfile>,
 ): Record<string, CustomProfile> {
   const cloned: Record<string, CustomProfile> = {}
-  for (const profileId of Object.keys(profiles)) {
-    const profile = profiles[profileId]
-    if (!profile) continue
+  for (const [profileId, profile] of Object.entries(profiles)) {
     cloned[profileId] = cloneProfile(profile)
   }
   return cloned
@@ -173,7 +172,7 @@ function toStringRecord(value: unknown): Record<string, string> {
 
   const next: Record<string, string> = {}
   for (const [key, recordValue] of Object.entries(value)) {
-    if (typeof recordValue === 'string') {
+    if (!isReservedRecordKey(key) && typeof recordValue === 'string') {
       next[key] = recordValue
     }
   }
@@ -186,7 +185,7 @@ function toColorRecord(value: unknown): Record<string, string> {
 
   const next: Record<string, string> = {}
   for (const [key, recordValue] of Object.entries(value)) {
-    if (isSafeCssColor(recordValue)) {
+    if (!isReservedRecordKey(key) && isSafeCssColor(recordValue)) {
       next[key] = recordValue.trim()
     }
   }
@@ -352,10 +351,11 @@ export class settingsTab extends PluginSettingTab {
   private openDeleteProfileModal(profileId: string, profileName: string): void {
     if (profileId in inputMap) return
 
-    new DeleteProfileModal(this.app, profileId, profileName, async () => {
+    new DeleteProfileModal(this.app, profileName, async () => {
       delete this.plugin.settings.profiles[profileId]
       this.plugin.settings.selectedProfile = 'asw'
       await this.plugin.saveSettings()
+      this.plugin.rerenderPreviewViews({ profileId })
       this.display()
       new Notice('Custom profile deleted')
     }).open()
@@ -365,10 +365,6 @@ export class settingsTab extends PluginSettingTab {
     new ResetSettingsModal(this.app, async () => {
       this.plugin.settings = createDefaultSettings()
       await this.plugin.saveSettings()
-      for (const profileId of Object.keys(this.plugin.settings.profiles)) {
-        this.plugin.updateColorsForProfile(profileId)
-      }
-      this.plugin.updateIconSizes()
       this.plugin.rerenderPreviewViews()
       this.activeSection = 'general'
       this.display()
@@ -398,7 +394,7 @@ export class settingsTab extends PluginSettingTab {
             if (value !== 'small' && value !== 'medium' && value !== 'large') return
             this.plugin.settings.iconSize = value
             await this.plugin.saveSettings()
-            this.plugin.updateIconSizes()
+            this.plugin.rerenderPreviewViews()
           })
       })
       .settingEl.addClass('cc-general-setting')
@@ -415,7 +411,7 @@ export class settingsTab extends PluginSettingTab {
             if (value !== 'joystick' && value !== 'arrows') return
             this.plugin.settings.motionIconStyle = value
             await this.plugin.saveSettings()
-            this.plugin.rerenderImageModeNotations()
+            this.plugin.rerenderPreviewViews()
           })
       })
       .settingEl.addClass('cc-general-setting')
@@ -433,8 +429,8 @@ export class settingsTab extends PluginSettingTab {
   }
 
   private createProfileSection(containerEl: HTMLElement): void {
-    const profile = this.plugin.settings.selectedProfile
-    const profileData = this.plugin.settings.profiles[profile]
+    const profileId = this.plugin.settings.selectedProfile
+    const profileData = this.plugin.settings.profiles[profileId]
     if (!profileData) {
       new Notice('Profile not found')
       return
@@ -461,18 +457,18 @@ export class settingsTab extends PluginSettingTab {
           const usage = frag.createDiv()
           usage.appendText('To use this profile, add ')
           const copyLink = usage.createEl('a', {
-            text: `cc_profile: ${profile}`,
+            text: `cc_profile: ${profileId}`,
             cls: 'cc-frontmatter-copy',
             attr: {
               href: '#',
               title: 'Copy frontmatter property',
-              'aria-label': `Copy cc_profile: ${profile}`,
+              'aria-label': `Copy cc_profile: ${profileId}`,
             },
           })
           copyLink.addEventListener('click', (event) => {
             event.preventDefault()
-            void navigator.clipboard
-              .writeText(`cc_profile: ${profile}`)
+            void copyLink.win.navigator.clipboard
+              .writeText(`cc_profile: ${profileId}`)
               .then(() => {
                 new Notice('Copied to clipboard')
               })
@@ -484,10 +480,10 @@ export class settingsTab extends PluginSettingTab {
         }),
       )
       .addDropdown((dropdown) => {
-        for (const key in this.plugin.settings.profiles) {
-          if (!Object.prototype.hasOwnProperty.call(this.plugin.settings.profiles, key)) continue
-          const listedProfile = this.plugin.settings.profiles[key]
-          dropdown.addOption(key, listedProfile.name)
+        for (const [listedProfileId, listedProfile] of Object.entries(
+          this.plugin.settings.profiles,
+        )) {
+          dropdown.addOption(listedProfileId, listedProfile.name)
         }
         dropdown.setValue(this.plugin.settings.selectedProfile).onChange(async (value) => {
           this.plugin.settings.selectedProfile = value
@@ -499,36 +495,31 @@ export class settingsTab extends PluginSettingTab {
         button
           .setIcon('trash')
           .setTooltip(
-            profile in inputMap ? 'Built-in profiles cannot be deleted' : 'Delete profile',
+            profileId in inputMap ? 'Built-in profiles cannot be deleted' : 'Delete profile',
           )
           .setClass('cc-profile-delete-button')
-          .setDisabled(profile in inputMap)
-          .onClick(() => this.openDeleteProfileModal(profile, profileData.name)),
+          .setDisabled(profileId in inputMap)
+          .onClick(() => this.openDeleteProfileModal(profileId, profileData.name)),
       )
     activeProfileSetting.settingEl.addClass('cc-general-setting')
 
-    if (!(profile in inputMap)) {
+    if (!(profileId in inputMap)) {
       new Setting(generalSection)
         .setName('Profile inputs')
         .setDesc('Add, edit, or remove inputs for this custom profile')
         .addButton((button) =>
           button.setButtonText('Edit inputs').onClick(() => {
-            const existingInputs = []
-            for (const name in profileData.desc) {
-              if (!Object.prototype.hasOwnProperty.call(profileData.desc, name)) continue
-              const description = profileData.desc[name]
-              existingInputs.push({
-                name,
-                description,
-                color: profileData.colors[name] || '#000000',
-              })
-            }
+            const existingInputs = Object.entries(profileData.desc).map(([name, description]) => ({
+              name,
+              description,
+              color: profileData.colors[name] || '#000000',
+            }))
 
             new InputsModal(
               this.app,
               async (inputs) => {
                 try {
-                  await this.plugin.saveProfileInputs(profile, inputs)
+                  await this.plugin.saveProfileInputs(profileId, inputs)
                   this.display()
                 } catch (error) {
                   const message = error instanceof Error ? error.message : 'Could not save inputs'
@@ -562,7 +553,7 @@ export class settingsTab extends PluginSettingTab {
       return
     }
 
-    const colorSection = generalSection.createDiv({ cls: 'color-settings-container' })
+    const colorSection = generalSection.createDiv({ cls: 'cc-color-settings-container' })
 
     new Setting(colorSection)
       .setName('Text color')
@@ -570,12 +561,13 @@ export class settingsTab extends PluginSettingTab {
       .addButton((button) =>
         button
           .setIcon('reset')
+          .setTooltip('Reset text color')
           .setClass('clickable-icon')
           .setClass('extra-setting-button')
           .onClick(async () => {
             profileData.textColor = '#FFFFFF'
             await this.plugin.saveSettings()
-            this.plugin.updateColorsForProfile(profile)
+            this.plugin.rerenderPreviewViews({ profileId })
             this.display()
           }),
       )
@@ -583,25 +575,23 @@ export class settingsTab extends PluginSettingTab {
         picker.setValue(profileData.textColor || '#FFFFFF').onChange(async (value) => {
           profileData.textColor = value
           await this.plugin.saveSettings()
-          this.plugin.updateColorsForProfile(profile)
+          this.plugin.rerenderPreviewViews({ profileId })
         })
       })
       .settingEl.addClass('cc-color-setting')
 
-    // Add individual color settings
-    for (const input in profileData.desc) {
-      if (!Object.prototype.hasOwnProperty.call(profileData.desc, input)) continue
-      const desc = profileData.desc[input]
+    for (const [input, description] of Object.entries(profileData.desc)) {
       let colorPicker: ColorComponent
       new Setting(colorSection)
         .setName(input)
-        .setDesc(desc)
+        .setDesc(description)
         .addButton((button) => {
-          const defaultProfile = inputMap[profile]
+          const defaultProfile = inputMap[profileId]
           const defaultColor = defaultProfile?.colors?.[input] || profileData.defaultColors?.[input]
 
           return button
             .setIcon('reset')
+            .setTooltip(`Reset ${input} color`)
             .setClass('clickable-icon')
             .setClass('extra-setting-button')
             .setDisabled(!defaultColor)
@@ -610,7 +600,7 @@ export class settingsTab extends PluginSettingTab {
                 profileData.colors[input] = defaultColor
                 colorPicker.setValue(defaultColor)
                 await this.plugin.saveSettings()
-                this.plugin.updateColorsForProfile(profile)
+                this.plugin.rerenderPreviewViews({ profileId })
               }
             })
         })
@@ -619,7 +609,7 @@ export class settingsTab extends PluginSettingTab {
           picker.setValue(profileData.colors[input] || '#000000').onChange(async (value) => {
             profileData.colors[input] = value
             await this.plugin.saveSettings()
-            this.plugin.updateColorsForProfile(profile)
+            this.plugin.rerenderPreviewViews({ profileId })
           })
         })
         .settingEl.addClass('cc-color-setting')
@@ -661,7 +651,11 @@ export class settingsTab extends PluginSettingTab {
       .setDesc('Documentation, releases, and issue tracking')
       .addButton((button) =>
         button.setButtonText('Open GitHub').onClick(() => {
-          window.open('https://github.com/kevinkickback/Combo-Colors', '_blank', 'noopener')
+          this.containerEl.win.open(
+            'https://github.com/kevinkickback/Combo-Colors',
+            '_blank',
+            'noopener',
+          )
         }),
       )
       .settingEl.addClass('cc-general-setting')
@@ -739,14 +733,27 @@ export class settingsTab extends PluginSettingTab {
       attr: { role: 'tablist', 'aria-label': 'Combo Colors settings sections' },
     })
 
-    for (const section of sections) {
+    const activateSection = (index: number, focus: boolean): void => {
+      const section = sections[index]
+      if (!section) return
+      this.activeSection = section.id
+      this.display()
+      if (focus) {
+        this.containerEl.querySelector<HTMLElement>(`#cc-settings-tab-${section.id}`)?.focus()
+      }
+    }
+
+    sections.forEach((section, index) => {
       const active = section.id === this.activeSection
       const button = tabs.createEl('button', {
         cls: `cc-settings-tab${active ? ' is-active' : ''}`,
         attr: {
+          id: `cc-settings-tab-${section.id}`,
           type: 'button',
           role: 'tab',
           'aria-selected': String(active),
+          'aria-controls': `cc-settings-panel-${section.id}`,
+          tabindex: active ? '0' : '-1',
         },
       })
       const icon = button.createSpan({ cls: 'cc-settings-tab-icon' })
@@ -754,14 +761,27 @@ export class settingsTab extends PluginSettingTab {
       button.createSpan({ text: section.label })
       button.addEventListener('click', () => {
         if (section.id === this.activeSection) return
-        this.activeSection = section.id
-        this.display()
+        activateSection(index, false)
       })
-    }
+      button.addEventListener('keydown', (event) => {
+        let targetIndex: number | null = null
+        if (event.key === 'ArrowRight') targetIndex = (index + 1) % sections.length
+        if (event.key === 'ArrowLeft') targetIndex = (index - 1 + sections.length) % sections.length
+        if (event.key === 'Home') targetIndex = 0
+        if (event.key === 'End') targetIndex = sections.length - 1
+        if (targetIndex === null) return
+        event.preventDefault()
+        activateSection(targetIndex, true)
+      })
+    })
 
     const panel = containerEl.createDiv({
       cls: 'cc-settings-panel',
-      attr: { role: 'tabpanel' },
+      attr: {
+        id: `cc-settings-panel-${this.activeSection}`,
+        role: 'tabpanel',
+        'aria-labelledby': `cc-settings-tab-${this.activeSection}`,
+      },
     })
     const activeSection = sections.find((section) => section.id === this.activeSection)
     ;(activeSection ?? sections[0]).render(panel)

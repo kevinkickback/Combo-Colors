@@ -58,6 +58,7 @@ export interface IconImage {
   source: string
   alt: string
   lowered?: boolean
+  className?: string
 }
 
 export interface MotionIconGroup {
@@ -127,7 +128,7 @@ const JOYSTICK_MOTION_ICON_MAP: Record<JoystickMotionIconValue, IconImage> = {
   rdp: { source: joystickRdpUrl, alt: 'RDP' },
   hcf: { source: joystickHcfUrl, alt: 'HCF' },
   hcb: { source: joystickHcbUrl, alt: 'HCB' },
-  spd: { source: joystickSpdUrl, alt: '360', lowered: true },
+  spd: { source: joystickSpdUrl, alt: '360', lowered: true, className: 'cc-motion-icon--spd' },
 }
 
 export const HOLD_JOYSTICK_ICON_MAP: Record<ArrowDirectionValue, IconImage> = {
@@ -167,23 +168,23 @@ export function getArrowIconUrl(direction: ArrowDirectionValue, hold = false): s
 
 const MOTION_ICON_REGISTRY: Record<CanonicalRenderValue, MotionIconDefinition> = {
   'double-qcf': {
-    label: 'QCF',
+    label: 'Double QCF',
     joystickSteps: ['qcf', 'qcf'],
     arrowSteps: ['down', 'down-forward', 'forward', 'down', 'down-forward', 'forward'],
   },
   'double-qcb': {
-    label: 'QCB',
+    label: 'Double QCB',
     joystickSteps: ['qcb', 'qcb'],
     arrowSteps: ['down', 'down-back', 'back', 'down', 'down-back', 'back'],
   },
   hcfb: {
-    label: 'HCF',
-    joystickSteps: ['hcf'],
+    label: 'HCF-Back',
+    joystickSteps: ['hcf', 'back'],
     arrowSteps: ['back', 'down-back', 'down', 'down-forward', 'forward', 'back'],
   },
   hcbf: {
-    label: 'HCBF',
-    joystickSteps: ['hcb'],
+    label: 'HCB-Forward',
+    joystickSteps: ['hcb', 'forward'],
     arrowSteps: ['forward', 'down-forward', 'down', 'down-back', 'back', 'forward'],
   },
   qcf: {

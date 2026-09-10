@@ -27,4 +27,20 @@ describe('validateAndNormalizeInputs', () => {
     expect(result.valid).toBe(false)
     expect(result.message).toBe('Duplicate input name: LP')
   })
+
+  it.each(['__proto__', 'prototype', 'constructor'])('rejects reserved record key %s', (name) => {
+    const result = validateAndNormalizeInputs([{ name, description: '', color: '#ffffff' }])
+
+    expect(result.valid).toBe(false)
+    expect(result.message).toBe(`Reserved input name: ${name}`)
+  })
+
+  it('rejects input names longer than 32 characters', () => {
+    const result = validateAndNormalizeInputs([
+      { name: 'A'.repeat(33), description: '', color: '#ffffff' },
+    ])
+
+    expect(result.valid).toBe(false)
+    expect(result.message).toContain('32 characters')
+  })
 })

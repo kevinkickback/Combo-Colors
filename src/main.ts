@@ -1,115 +1,102 @@
 import { type MarkdownPostProcessorContext, MarkdownView, Plugin } from 'obsidian'
-import { validateAndNormalizeInputs } from './input-validation'
+import { type InputConfig, validateAndNormalizeInputs } from './input-validation'
 import { ModeToggle } from './mode-toggle'
 import { NotationGuideModal } from './notation-guide-modal'
-import { NotationObserver } from './notation-observer'
 import { NotationRenderer } from './notation-renderer'
-import { RendererCoordinator } from './renderer-coordinator'
+import { getObsidianWindow } from './obsidian-dom'
+import { RendererCoordinator, type RerenderOptions } from './renderer-coordinator'
 import { mergeSettingsWithDefaults, type Settings, settingsTab } from './settings'
-import { StyleManager } from './style-manager'
 
-interface ProfileInputEdit {
-  name: string
-  description: string
-  color: string
-}
+const ELEMENT_NODE = 1
+const TEXT_NODE = 3
 
 export default class comboColors extends Plugin {
-  styleElement!: HTMLStyleElement
   settings!: Settings
 
   private notationRenderer = new NotationRenderer()
-  private styleManager!: StyleManager
   private rerenderCoordinator!: RendererCoordinator
-  private notationObserver!: NotationObserver
   private modeToggle!: ModeToggle
+  private readonly imageModeFiles = new Set<string>()
 
   async onload() {
-    const workspaceDocument = this.app.workspace.containerEl.ownerDocument
-    this.styleElement = createEl('style', { attr: { id: 'dynamic-colors' } })
-    workspaceDocument.head.appendChild(this.styleElement)
-    this.styleManager = new StyleManager(this.styleElement, this.app.workspace.containerEl)
-    this.rerenderCoordinator = new RendererCoordinator(this.app)
-    this.notationObserver = new NotationObserver(
-      this.app.workspace.containerEl,
-      this.notationRenderer,
-      (notation) => this.renderNotationAsImages(notation),
+    this.rerenderCoordinator = new RendererCoordinator(this.app, (options) =>
+      this.rerenderPreviewViews(options),
     )
     this.modeToggle = new ModeToggle(
       this.app,
-      this.notationRenderer,
-      (notation) => this.renderNotationAsImages(notation),
+      (filePath) => this.imageModeFiles.has(filePath),
+      (filePath, enabled) => {
+        if (enabled) this.imageModeFiles.add(filePath)
+        else this.imageModeFiles.delete(filePath)
+      },
       (options) => this.rerenderPreviewViews(options),
     )
 
     await this.loadSettings()
 
-    // Generate profile & icon size CSS rules for immediate use
-    for (const profileId of Object.keys(this.settings.profiles)) {
-      this.updateColorsForProfile(profileId)
-    }
-
-    this.updateIconSizes()
-
-    // Setup mutation observer to handle newly added DOM elements
-    this.notationObserver.connect()
-
-    // First processor: Convert =:notation:= syntax into spans
-    this.registerMarkdownPostProcessor((element: HTMLElement) => {
-      this.replaceNotationSyntax(element)
-    })
-
-    // Second processor: Apply colors and process inputs based on profile
     this.registerMarkdownPostProcessor(
       (element: HTMLElement, context: MarkdownPostProcessorContext) => {
-        const file = context.sourcePath
-        const frontmatter = this.app.metadataCache.getCache(file)?.frontmatter
+        this.replaceNotationSyntax(element)
+
+        const filePath = context.sourcePath
+        const frontmatter = this.app.metadataCache.getCache(filePath)?.frontmatter
         const frontmatterProfile: unknown = frontmatter?.cc_profile
         const profileId = typeof frontmatterProfile === 'string' ? frontmatterProfile.trim() : null
         const profile = profileId ? this.settings.profiles[profileId] : null
+        const imageMode = this.imageModeFiles.has(filePath)
 
-        for (const notation of element.querySelectorAll('.notation')) {
-          if (!this.isHtmlElement(notation)) continue
-
+        for (const notation of element.querySelectorAll<HTMLElement>('.cc-notation')) {
           const textMode = notation.textContent || ''
 
           if (!profile || !profileId) {
             notation.setText('[ no notation profile in frontmatter ]')
-            notation.addClass('warning')
+            notation.addClass('cc-warning')
             continue
           }
 
-          this.notationRenderer.applyTextMode(element, notation, profileId, profile, textMode)
+          this.notationRenderer.applyTextMode(notation, profileId, profile, textMode)
+          if (imageMode) {
+            this.notationRenderer.renderImageMode(
+              notation,
+              profileId,
+              textMode,
+              this.settings.profiles,
+              this.settings.motionIconStyle,
+              this.settings.iconSize,
+            )
+          }
+        }
+
+        for (const codeblock of element.querySelectorAll<HTMLElement>('code')) {
+          if (codeblock.textContent?.trim() === 'comboButton' && codeblock.parentNode) {
+            const button = element.createEl('button', {
+              text: imageMode ? 'Text notation' : 'Icon notation',
+              cls: 'cc-mode-toggle',
+              attr: { type: 'button' },
+            })
+            button.addEventListener('click', this.modeToggle.toggleNotations)
+            codeblock.parentNode.replaceChild(button, codeblock)
+          }
         }
       },
     )
 
-    this.registerMarkdownPostProcessor((element: HTMLElement) => {
-      for (const codeblock of element.querySelectorAll<HTMLElement>('code')) {
-        if (codeblock.innerText.trim() === 'comboButton' && codeblock.parentNode) {
-          const button = element.createEl('button', {
-            text: 'Icon notation',
-            cls: 'combo',
-          })
-          button.addEventListener('click', this.modeToggle.toggleNotations)
-          codeblock.parentNode.replaceChild(button, codeblock)
-        }
-      }
-    })
-
-    // Handle profile changes in frontmatter
     this.registerEvent(
       this.app.metadataCache.on('changed', (file) => {
-        this.rerenderCoordinator.onMetadataChanged(file, (options) =>
-          this.rerenderPreviewViews(options),
-        )
+        this.rerenderCoordinator.onMetadataChanged(file)
       }),
     )
 
-    // Process queued rerenders when switching views
     this.registerEvent(
       this.app.workspace.on('layout-change', () => {
-        this.rerenderCoordinator.onLayoutChange((options) => this.rerenderPreviewViews(options))
+        this.rerenderCoordinator.onLayoutChange()
+      }),
+    )
+
+    this.registerEvent(
+      this.app.vault.on('rename', (file, oldPath) => {
+        if (!this.imageModeFiles.delete(oldPath)) return
+        this.imageModeFiles.add(file.path)
       }),
     )
 
@@ -128,16 +115,6 @@ export default class comboColors extends Plugin {
     this.addSettingTab(new settingsTab(this.app, this))
   }
 
-  updateColorsForProfile(profileId: string) {
-    const profile = this.settings.profiles[profileId]
-    if (!profile) return
-    this.styleManager.updateColorsForProfile(profileId, profile)
-  }
-
-  updateIconSizes() {
-    this.styleManager.updateIconSizes(this.settings.iconSize)
-  }
-
   openNotationGuide(): void {
     const profile = this.settings.profiles[this.settings.selectedProfile]
     new NotationGuideModal(this.app, {
@@ -151,25 +128,9 @@ export default class comboColors extends Plugin {
     }).open()
   }
 
-  private renderNotationAsImages(notation: HTMLElement) {
-    this.notationRenderer.renderImageMode(
-      notation,
-      this.settings.profiles,
-      this.settings.motionIconStyle,
-    )
-  }
-
-  rerenderImageModeNotations(): void {
-    for (const notation of this.app.workspace.containerEl.querySelectorAll<HTMLElement>(
-      '.notation.imageMode',
-    )) {
-      this.renderNotationAsImages(notation)
-    }
-  }
-
   onunload() {
-    this.styleElement?.remove()
-    this.notationObserver.disconnect()
+    this.imageModeFiles.clear()
+    this.rerenderCoordinator.clear()
   }
 
   async loadSettings() {
@@ -180,7 +141,7 @@ export default class comboColors extends Plugin {
     await this.saveData(this.settings)
   }
 
-  async saveProfileInputs(profileId: string, inputs: ProfileInputEdit[]): Promise<void> {
+  async saveProfileInputs(profileId: string, inputs: InputConfig[]): Promise<void> {
     const profile = this.settings.profiles[profileId]
     if (!profile) return
 
@@ -203,11 +164,10 @@ export default class comboColors extends Plugin {
     }
 
     await this.saveSettings()
-    this.updateColorsForProfile(profileId)
     this.rerenderPreviewViews({ profileId })
   }
 
-  rerenderPreviewViews(options: { filePath?: string; profileId?: string } = {}) {
+  rerenderPreviewViews(options: RerenderOptions = {}) {
     for (const leaf of this.app.workspace.getLeavesOfType('markdown')) {
       const view = leaf.view
       if (!(view instanceof MarkdownView) || view.getMode() !== 'preview') continue
@@ -229,91 +189,44 @@ export default class comboColors extends Plugin {
     }
   }
 
-  private isHtmlElement(value: unknown): value is HTMLElement {
-    const maybeInstanceOf = value as {
-      instanceOf?: (ctor: typeof HTMLElement) => boolean
-    }
-    const activeWindow =
-      this.app.workspace.containerEl.ownerDocument?.defaultView ??
-      (typeof window !== 'undefined' ? window : undefined)
-
-    if (typeof maybeInstanceOf?.instanceOf === 'function') {
-      return maybeInstanceOf.instanceOf(activeWindow?.HTMLElement ?? HTMLElement)
-    }
-
-    return activeWindow ? value instanceof activeWindow.HTMLElement : false
-  }
-
   private isLiteralContextElement(element: HTMLElement): boolean {
     if (element.matches('code, pre, kbd, samp, script, style, textarea')) {
       return true
     }
 
     return (
-      element.hasClass('math') ||
-      element.hasClass('math-block') ||
-      element.hasClass('cm-inline-code')
+      element.classList.contains('math') ||
+      element.classList.contains('math-block') ||
+      element.classList.contains('cm-inline-code')
     )
-  }
-
-  private isElementNode(node: Node): boolean {
-    const maybeInstanceOf = node as {
-      instanceOf?: (ctor: typeof Element) => boolean
-    }
-
-    if (typeof maybeInstanceOf.instanceOf === 'function') {
-      return maybeInstanceOf.instanceOf(Element)
-    }
-
-    const activeWindow =
-      node.ownerDocument?.defaultView ?? (typeof window !== 'undefined' ? window : undefined)
-    return node.nodeType === (activeWindow?.Node.ELEMENT_NODE ?? 1)
-  }
-
-  private isTextNode(node: Node): boolean {
-    const maybeInstanceOf = node as {
-      instanceOf?: (ctor: typeof Text) => boolean
-    }
-
-    if (typeof maybeInstanceOf.instanceOf === 'function') {
-      return maybeInstanceOf.instanceOf(Text)
-    }
-
-    const activeWindow =
-      node.ownerDocument?.defaultView ?? (typeof window !== 'undefined' ? window : undefined)
-    return node.nodeType === (activeWindow?.Node.TEXT_NODE ?? 3)
   }
 
   private replaceNotationSyntax(element: HTMLElement): void {
     const processNode = (node: Node) => {
-      if (this.isElementNode(node)) {
+      if (node.nodeType === ELEMENT_NODE) {
         const currentElement = node as HTMLElement
-        if (this.isLiteralContextElement(currentElement)) {
-          return
-        }
-      }
-
-      if (!this.isTextNode(node)) {
-        if (this.isElementNode(node)) {
-          for (const child of [...node.childNodes]) processNode(child)
-        }
+        if (this.isLiteralContextElement(currentElement)) return
+        for (const child of [...node.childNodes]) processNode(child)
         return
       }
+
+      if (node.nodeType !== TEXT_NODE) return
 
       const text = node.textContent || ''
       const regex = /=:(.+?):=/g
       let match = regex.exec(text)
       if (!match) return
 
-      const fragment = element.ownerDocument.createDocumentFragment()
+      const activeWindow = getObsidianWindow(element)
+      const fragment = activeWindow.createFragment()
       let lastIndex = 0
 
       while (match) {
         fragment.append(text.slice(lastIndex, match.index))
 
-        const notationSpan = element.ownerDocument.createElement('span')
-        notationSpan.addClass('notation')
-        notationSpan.setText(match[1])
+        const notationSpan = activeWindow.createSpan()
+        notationSpan.className = 'cc-notation'
+        notationSpan.textContent = match[1]
         fragment.append(notationSpan)
 
         lastIndex = regex.lastIndex

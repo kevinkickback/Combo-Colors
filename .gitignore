@@ -1,5 +1,6 @@
-# vscode
-.vscode
+# VS Code (share extension recommendations, keep personal settings private)
+.vscode/*
+!.vscode/extensions.json
 
 # Intellij
 *.iml

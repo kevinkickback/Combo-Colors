@@ -105,6 +105,8 @@ describe('icon registry', () => {
       ['forward-down-back', ['Forward', 'Down', 'Back']],
       ['forward-down-forward', ['Forward', 'DownForward', 'Down']],
       ['tiger-knee', ['QCF', 'UpForward']],
+      ['hcfb', ['HCF', 'Back']],
+      ['hcbf', ['HCB', 'Forward']],
     ] as const
 
     for (const [canonical, expectedAlts] of cases) {
@@ -133,6 +135,7 @@ describe('icon registry', () => {
     expect(doubleCircleSources).toEqual([spdSource, spdSource])
     expect(tripleCircleSources).toEqual([spdSource, spdSource, spdSource])
     expect(spdIcon?.lowered).toBe(true)
+    expect(spdIcon?.className).toBe('cc-motion-icon--spd')
   })
 
   it('renders complete arrow revolutions for circular motions', () => {

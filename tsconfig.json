@@ -12,5 +12,5 @@
     "strictNullChecks": true,
     "lib": ["DOM", "dom.iterable", "ES5", "ES6", "ES7"]
   },
-  "include": ["**/*.ts"]
+  "include": ["**/*.ts", "**/*.mts"]
 }

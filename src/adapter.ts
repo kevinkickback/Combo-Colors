@@ -14,7 +14,7 @@ export interface PlainSegment {
 
 /**
  * A colored-button segment. Maps to a CSS color span in the rendered output.
- * `input` is the profile button key (e.g. 'LP', 'A') used to derive the CSS class.
+ * `input` is the profile button key (e.g. 'LP', 'A') used to resolve its color.
  * `rawText` is the source text as it appeared (may include brackets like '[A]').
  */
 export interface ColorSegment {

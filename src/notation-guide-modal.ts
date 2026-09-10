@@ -28,8 +28,8 @@ export class NotationGuideModal extends Modal {
     const table = tableWrapper.createEl('table', { cls: 'cc-notation-guide-table' })
     const head = table.createEl('thead')
     const headingRow = head.createEl('tr')
-    headingRow.createEl('th', { text: 'Input' })
-    headingRow.createEl('th', { text: 'Resolves to' })
+    headingRow.createEl('th', { text: 'Input', attr: { scope: 'col' } })
+    headingRow.createEl('th', { text: 'Resolves to', attr: { scope: 'col' } })
 
     const body = table.createEl('tbody')
     for (const row of rows) {

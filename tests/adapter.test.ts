@@ -282,7 +282,7 @@ describe('tokensToImageSegments', () => {
     expect(segments).toHaveLength(1)
     if (segments[0].kind === 'icon-group') {
       expect(segments[0].icons).toHaveLength(2)
-      expect(segments[0].label).toBe('QCF')
+      expect(segments[0].label).toBe('Double QCF')
     }
   })
 

@@ -111,6 +111,24 @@ describe('settings defaults', () => {
     expect(merged.selectedProfile).toBe('asw')
   })
 
+  it('discards reserved input keys from manually edited persisted data', () => {
+    const persisted = JSON.parse(`{
+      "profiles": {
+        "custom_1": {
+          "name": "Safe",
+          "desc": { "__proto__": "Bad", "A": "Attack" },
+          "colors": { "constructor": "#000000", "A": "#123456" }
+        }
+      }
+    }`)
+    const profile = mergeSettingsWithDefaults(persisted).profiles.custom_1
+
+    expect(Object.prototype.hasOwnProperty.call(profile.desc, '__proto__')).toBe(false)
+    expect(Object.prototype.hasOwnProperty.call(profile.colors, 'constructor')).toBe(false)
+    expect(profile.desc.A).toBe('Attack')
+    expect(profile.colors.A).toBe('#123456')
+  })
+
   it('filters invalid persisted colors and falls back for textColor', () => {
     const merged = mergeSettingsWithDefaults({
       profiles: {

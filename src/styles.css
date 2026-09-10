@@ -1,39 +1,49 @@
-/* Dynamic colors for profile notations */
 .cc-profile-color {
-	color: var(--notation-color);
+	color: var(--cc-notation-color);
 	white-space: nowrap;
 }
 
-.cc-profile-color svg:not(.motionIcon) circle,
-svg.cc-profile-color:not(.motionIcon) circle {
-	fill: var(--notation-color);
+svg.cc-profile-color circle:not(.cc-button-hold-ring) {
+	fill: var(--cc-notation-color);
 }
 
-.cc-profile-color svg text,
 svg.cc-profile-color text {
-	fill: var(--text-color, white);
+	fill: var(--cc-text-color, #fff);
 }
 
 svg.cc-button-icon--hold circle.cc-button-hold-ring {
 	fill: none;
-	stroke: var(--notation-color);
+	stroke: var(--cc-notation-color);
 	stroke-width: 4;
 }
 
-/* keep notations together */
-.notation {
+.cc-notation {
 	white-space: normal;
 	word-break: keep-all;
 }
 
-/* Adjust font when icons displayed */
-.imageMode {
+.cc-image-mode {
 	font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 	font-weight: bold;
+}
+
+.cc-image-mode.cc-icon-size-small {
 	font-size: 1rem;
 }
 
-/* Fixed motion icons share one layout regardless of visual style. */
+.cc-image-mode.cc-icon-size-medium {
+	font-size: 1.5rem;
+}
+
+.cc-image-mode.cc-icon-size-large {
+	font-size: 1.75rem;
+}
+
+.cc-button-icon,
+.cc-motion-icon {
+	vertical-align: text-bottom;
+}
+
 .cc-motion-icon-group {
 	display: inline-flex;
 	align-items: center;
@@ -41,17 +51,61 @@ svg.cc-button-icon--hold circle.cc-button-hold-ring {
 	vertical-align: text-bottom;
 }
 
-.cc-motion-icon-group .motionIcon {
+.cc-motion-icon-group .cc-motion-icon {
 	display: block;
 	flex: none;
 }
 
-.cc-motion-icon-group--joystick {
-	gap: 0.06em;
+.cc-icon-size-small .cc-button-icon {
+	height: 1.2rem;
 }
 
-.cc-motion-icon-group--joystick .motionIcon {
-	margin-left: 0;
+.cc-icon-size-medium .cc-button-icon {
+	height: 1.75rem;
+}
+
+.cc-icon-size-large .cc-button-icon {
+	height: 2.25rem;
+}
+
+.cc-icon-size-small .cc-motion-icon {
+	height: 1.4rem;
+}
+
+.cc-icon-size-medium .cc-motion-icon {
+	height: 2rem;
+}
+
+.cc-icon-size-large .cc-motion-icon {
+	height: 2.5rem;
+}
+
+.cc-icon-size-small .cc-motion-icon-group--joystick .cc-motion-icon {
+	height: 1.55rem;
+}
+
+.cc-icon-size-medium .cc-motion-icon-group--joystick .cc-motion-icon {
+	height: 2.25rem;
+}
+
+.cc-icon-size-large .cc-motion-icon-group--joystick .cc-motion-icon {
+	height: 2.8125rem;
+}
+
+.cc-icon-size-small .cc-motion-icon-group--joystick .cc-motion-icon--spd {
+	height: 1.4rem;
+}
+
+.cc-icon-size-medium .cc-motion-icon-group--joystick .cc-motion-icon--spd {
+	height: 2rem;
+}
+
+.cc-icon-size-large .cc-motion-icon-group--joystick .cc-motion-icon--spd {
+	height: 2.5rem;
+}
+
+.cc-motion-icon-group--joystick {
+	gap: 0.06em;
 }
 
 .cc-motion-icon-group--joystick .cc-motion-icon--lowered {
@@ -59,11 +113,10 @@ svg.cc-button-icon--hold circle.cc-button-hold-ring {
 }
 
 .cc-button-icon--after-motion {
-	margin-left: 0.08em;
+	margin-left: 0.12em;
 }
 
-/* Missing profile notation message */
-.warning {
+.cc-warning {
 	background-color: var(--background-primary);
 	color: var(--interactive-accent);
 	padding-left: 0.25em;
@@ -199,6 +252,7 @@ svg.cc-button-icon--hold circle.cc-button-hold-ring {
 		opacity: 0;
 		transform: translateY(3px);
 	}
+
 	to {
 		opacity: 1;
 		transform: translateY(0);
@@ -222,20 +276,10 @@ svg.cc-button-icon--hold circle.cc-button-hold-ring {
 	background: var(--background-secondary);
 }
 
-.setting-item-description-custom {
-	color: var(--text-muted);
-	font-size: var(--font-ui-smaller);
-	margin: 0;
-	padding-top: 0;
-	padding-bottom: 0.75em;
-	line-height: var(--line-height-tight);
-}
-
 .cc-frontmatter-copy {
 	color: var(--text-accent);
 	font-family: var(--font-monospace);
 	font-size: inherit;
-	text-decoration-style: dotted;
 	cursor: pointer;
 }
 
@@ -243,14 +287,14 @@ svg.cc-button-icon--hold circle.cc-button-hold-ring {
 	color: var(--text-accent-hover);
 }
 
-.modal-button-container {
+.cc-modal-button-container {
 	margin-top: 16px;
 	display: flex;
 	justify-content: flex-end;
 	gap: 8px;
 }
 
-.modal-button-container .setting-item {
+.cc-modal-button-container .setting-item {
 	border: none;
 	padding: 0;
 	margin: 0;
@@ -297,6 +341,7 @@ svg.cc-button-icon--hold circle.cc-button-hold-ring {
 .cc-input-swatch {
 	width: 1rem;
 	height: 1rem;
+	background-color: var(--cc-input-swatch-color);
 	border-radius: 50%;
 	flex-shrink: 0;
 }
@@ -355,7 +400,7 @@ svg.cc-button-icon--hold circle.cc-button-hold-ring {
 	display: none;
 }
 
-.color-settings-container {
+.cc-color-settings-container {
 	border: none;
 	overflow: hidden;
 	padding: 0;
@@ -380,10 +425,6 @@ svg.cc-button-icon--hold circle.cc-button-hold-ring {
 
 .cc-notation-guide-section {
 	margin-top: var(--size-4-6);
-	padding: var(--size-4-4);
-	border: 1px solid var(--background-modifier-border);
-	border-radius: var(--radius-l);
-	background: var(--background-secondary);
 }
 
 .cc-notation-guide-section h3 {
@@ -424,13 +465,13 @@ svg.cc-button-icon--hold circle.cc-button-hold-ring {
 	font-weight: var(--font-semibold);
 }
 
-.cc-notation-guide-table tbody tr:last-child td {
-	border-bottom: 0;
-}
-
 .cc-notation-guide-table th:first-child,
 .cc-notation-guide-table td:first-child {
 	width: 48%;
+}
+
+.cc-notation-guide-table tbody tr:last-child td {
+	border-bottom: 0;
 }
 
 .cc-notation-guide-aliases code {
@@ -488,7 +529,13 @@ svg.cc-button-icon--hold circle.cc-button-hold-ring {
 	white-space: nowrap;
 }
 
-@media (max-width: 500px) {
+@media (prefers-reduced-motion: reduce) {
+	.cc-settings-panel {
+		animation: none;
+	}
+}
+
+@media (width <= 500px) {
 	.cc-settings-topbar {
 		align-items: flex-start;
 		flex-wrap: wrap;
@@ -510,10 +557,6 @@ svg.cc-button-icon--hold circle.cc-button-hold-ring {
 	.cc-notation-guide-table th,
 	.cc-notation-guide-table td {
 		padding: var(--size-4-2);
-	}
-
-	.cc-notation-guide-section {
-		padding: var(--size-4-3);
 	}
 
 	.cc-notation-guide-direction-grid {

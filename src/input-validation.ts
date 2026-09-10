@@ -1,6 +1,13 @@
-import type { InputConfig } from './modal'
+import { isReservedRecordKey } from './record-key-validation'
 
 const INPUT_NAME_REGEX = /^[A-Za-z0-9_-]+$/
+const MAX_INPUT_NAME_LENGTH = 32
+
+export interface InputConfig {
+  name: string
+  description: string
+  color: string
+}
 
 export interface InputValidationResult {
   valid: boolean
@@ -32,6 +39,22 @@ export function validateAndNormalizeInputs(inputs: InputConfig[]): InputValidati
       return {
         valid: false,
         message: 'Input names can only use letters, numbers, underscores, and hyphens.',
+        inputs: normalizedInputs,
+      }
+    }
+
+    if (normalizedName.length > MAX_INPUT_NAME_LENGTH) {
+      return {
+        valid: false,
+        message: `Input names cannot exceed ${MAX_INPUT_NAME_LENGTH} characters.`,
+        inputs: normalizedInputs,
+      }
+    }
+
+    if (isReservedRecordKey(normalizedName)) {
+      return {
+        valid: false,
+        message: `Reserved input name: ${normalizedName}`,
         inputs: normalizedInputs,
       }
     }
