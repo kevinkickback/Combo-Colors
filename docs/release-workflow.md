@@ -15,11 +15,12 @@ auto-merged.
 Configure the `main` ruleset to reject direct pushes, allow squash merging, require review
 conversations to be resolved, and require the **Lint, type-check, and test** check, which also runs
 the production build. Enable automatic Copilot review for draft pull requests and new pushes. For a
-ready release PR, the merge job gives a requested Copilot review up to three minutes to finish. It
+ready release PR, the merge job gives Copilot up to three minutes to finish. It
 continues automatically when the review has no unresolved findings; an unresolved review
 conversation blocks the merge through the repository ruleset. Copilot review remains advisory: its
 approval or completion is not a required check, so removing Copilot access, exhausting its quota,
-or a review timeout cannot block a release indefinitely. Required reviews can remain enabled;
+or a review timeout cannot block a release indefinitely. The polling window is three minutes and
+the optional step has a four-minute hard timeout to cover API overhead. Required reviews can remain enabled;
 GitHub's merge API still honors the repository's merge requirements. Do not require the downstream
 merge or release jobs as pre-merge checks.
 

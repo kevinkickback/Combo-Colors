@@ -53,43 +53,44 @@ jobs:
       sha: ${{ steps.merge.outputs.sha }}
     steps:
       - name: Wait for optional Copilot review
+        continue-on-error: true
+        timeout-minutes: 4
         uses: actions/github-script@v9
         with:
           script: |
             const { owner, repo } = context.repo;
             const pull_number = context.payload.pull_request.number;
             const expectedHead = context.payload.pull_request.head.sha;
-            const isCopilot = (login) => (login ?? '').toLowerCase().includes('copilot');
+            const copilotLogins = new Set([
+              'copilot',
+              'copilot-pull-request-reviewer',
+              'copilot-pull-request-reviewer[bot]',
+            ]);
+            const isCopilot = (user) => {
+              const login = (user?.login ?? '').toLowerCase();
+              return copilotLogins.has(login) || (user?.type === 'Bot' && login.includes('copilot'));
+            };
             const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
-            let sawPendingRequest = false;
+            const deadline = Date.now() + 180_000;
 
-            for (let attempt = 0; attempt < 18; attempt += 1) {
+            while (Date.now() < deadline) {
               const reviews = await github.paginate(github.rest.pulls.listReviews, {
                 owner, repo, pull_number, per_page: 100,
               });
               const reviewedHead = reviews.some((review) =>
-                review.commit_id === expectedHead && isCopilot(review.user?.login),
+                review.commit_id === expectedHead && isCopilot(review.user),
               );
               if (reviewedHead) {
                 core.info(`Copilot reviewed ${expectedHead}; continuing to repository merge checks.`);
                 return;
               }
 
-              const { data: requested } = await github.rest.pulls.listRequestedReviewers({
-                owner, repo, pull_number,
-              });
-              const pending = requested.users.some((reviewer) => isCopilot(reviewer.login));
-              sawPendingRequest ||= pending;
-
-              if (!pending && !sawPendingRequest && attempt > 0) {
-                core.notice('Copilot review is not available or was not requested; continuing without it.');
-                return;
-              }
-
-              if (attempt < 17) await sleep(10_000);
+              const remaining = deadline - Date.now();
+              if (remaining <= 0) break;
+              await sleep(Math.min(10_000, remaining));
             }
 
-            core.warning('Copilot review did not complete within three minutes; continuing without it.');
+            core.notice('No Copilot review completed within three minutes; continuing without it.');
 
       - name: Merge the checked PR revision
         id: merge
