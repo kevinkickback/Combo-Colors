@@ -113,7 +113,7 @@ jobs:
         id: metadata
         shell: bash
         run: |
-          node scripts/release/check-release.mjs
+          node scripts/check-release.mjs
           version="$(node -p "require('./package.json').version")"
           previous_version="$(
             git show "$SOURCE_SHA^:package.json" |
@@ -181,7 +181,7 @@ jobs:
           fi
 
       - name: Prepare release notes
-        run: node scripts/release/check-release.mjs --notes-file release-notes.md
+        run: node scripts/check-release.mjs --notes-file release-notes.md
 
       - name: Create or refresh draft release
         shell: bash

@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises'
 
-const root = new URL('../../', import.meta.url)
+const root = new URL('../', import.meta.url)
 const readJson = async (path) => JSON.parse(await readFile(new URL(path, root), 'utf8'))
 
 const packageJson = await readJson('package.json')

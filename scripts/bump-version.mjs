@@ -1,6 +1,12 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 
 const targetVersion = process.env.npm_package_version
+if (
+  typeof targetVersion !== 'string' ||
+  !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(targetVersion)
+) {
+  throw new Error('npm_package_version must contain a stable X.Y.Z version.')
+}
 
 // read minAppVersion from manifest.json and bump version to target version
 const manifest = JSON.parse(readFileSync('manifest.json', 'utf8'))

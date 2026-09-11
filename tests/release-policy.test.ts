@@ -54,7 +54,7 @@ beforeEach(() => {
     changelog: '# v2.0.0\n\n- New release\n\n# v1.9.0\n\n- Previous release',
     writes: [],
   })
-  process.argv = ['node', 'scripts/release/check-release.mjs']
+  process.argv = ['node', 'scripts/check-release.mjs']
 })
 
 afterEach(() => {
@@ -62,7 +62,7 @@ afterEach(() => {
 })
 
 async function run() {
-  return import('../scripts/release/check-release.mjs')
+  return import('../scripts/check-release.mjs')
 }
 
 test('accepts synchronized Obsidian release metadata', async () => {
