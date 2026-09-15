@@ -13,9 +13,10 @@
     "lint:obsid": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
+    "test:coverage": "vitest run --coverage",
     "test:run": "vitest run",
     "test:watch": "vitest watch",
-    "version": "node scripts/release/bump-version.mjs && git add manifest.json versions.json"
+    "version": "node scripts/bump-version.mjs && git add manifest.json versions.json"
   },
   "keywords": [],
   "author": "Kevin Kickback",

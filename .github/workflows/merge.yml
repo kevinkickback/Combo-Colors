@@ -1,0 +1,168 @@
+name: Merge tested dev changes
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: read
+
+jobs:
+  eligibility:
+    name: Confirm the tested revision is eligible
+    runs-on: ubuntu-latest
+    outputs:
+      eligible: ${{ steps.check.outputs.eligible }}
+      pull-number: ${{ steps.check.outputs.pull-number }}
+      head-sha: ${{ steps.check.outputs.head-sha }}
+      base-sha: ${{ steps.check.outputs.base-sha }}
+    steps:
+      - name: Validate the completed CI run
+        id: check
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            core.setOutput('eligible', 'false');
+
+            const { owner, repo } = context.repo;
+            const run = context.payload.workflow_run;
+            const associatedPulls = run.pull_requests ?? [];
+            if (run.event !== 'pull_request' || associatedPulls.length !== 1) {
+              core.info('Ignoring a CI run that is not associated with exactly one pull request.');
+              return;
+            }
+
+            const testedPull = associatedPulls[0];
+            const { data: pr } = await github.rest.pulls.get({
+              owner, repo, pull_number: testedPull.number,
+            });
+            if (pr.base.ref !== 'main' || pr.head.ref !== 'dev' ||
+                pr.head.repo.full_name !== `${owner}/${repo}`) {
+              core.info('Ignoring a pull request outside the dev to main release path.');
+              return;
+            }
+            if (!pr.merged && (pr.state !== 'open' || pr.draft)) {
+              core.info('The pull request is not currently ready for automatic merging.');
+              return;
+            }
+            if (pr.head.sha !== testedPull.head.sha) {
+              core.info('The pull request has moved past this completed CI run.');
+              return;
+            }
+            if (run.conclusion !== 'success') {
+              core.info(`CI concluded with ${run.conclusion}; the revision is not eligible.`);
+              return;
+            }
+
+            const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
+              owner,
+              repo,
+              run_id: run.id,
+              filter: 'latest',
+              per_page: 100,
+            });
+            const requiredJobs = ['Lint, type-check, and test'];
+            for (const name of requiredJobs) {
+              const matches = jobs.filter((job) => job.name === name);
+              if (matches.length !== 1 || matches[0].conclusion !== 'success') {
+                throw new Error(`Required CI job "${name}" did not complete successfully exactly once.`);
+              }
+            }
+
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner,
+              repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+            const protectedFiles = files
+              .map((file) => file.filename)
+              .filter((path) =>
+                path.startsWith('.github/workflows/') ||
+                path.startsWith('.github/scripts/') ||
+                path === 'scripts/check-release.mjs',
+              );
+            if (protectedFiles.length > 0) {
+              core.warning(
+                `Release infrastructure changes require a manual merge: ${protectedFiles.join(', ')}`,
+              );
+              return;
+            }
+
+            core.setOutput('eligible', 'true');
+            core.setOutput('pull-number', String(pr.number));
+            core.setOutput('head-sha', testedPull.head.sha);
+            core.setOutput('base-sha', testedPull.base.sha);
+
+  squash-merge:
+    name: Squash merge and request release
+    needs: eligibility
+    if: needs.eligibility.outputs.eligible == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Merge the tested revision
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          PR_NUMBER: ${{ needs.eligibility.outputs.pull-number }}
+          TESTED_HEAD_SHA: ${{ needs.eligibility.outputs.head-sha }}
+          TESTED_BASE_SHA: ${{ needs.eligibility.outputs.base-sha }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pullNumber = Number(process.env.PR_NUMBER);
+            const testedHead = process.env.TESTED_HEAD_SHA;
+            const testedBase = process.env.TESTED_BASE_SHA;
+            const { data: pr } = await github.rest.pulls.get({
+              owner, repo, pull_number: pullNumber,
+            });
+            if (pr.head.sha !== testedHead) {
+              throw new Error('The PR changed; its latest CI run must pass before merging.');
+            }
+            if (pr.base.ref !== 'main' || pr.head.ref !== 'dev' ||
+                pr.head.repo.full_name !== `${owner}/${repo}`) {
+              throw new Error('The PR is not an eligible dev to main merge.');
+            }
+
+            let mergeSha;
+            if (pr.merged) {
+              if (!pr.merge_commit_sha) {
+                throw new Error('The merged PR has no squash commit to release.');
+              }
+              mergeSha = pr.merge_commit_sha;
+              core.info(`PR #${pullNumber} is already merged at ${mergeSha}; resuming release.`);
+            } else {
+              if (pr.state !== 'open' || pr.draft) {
+                throw new Error('The pull request is no longer open and ready to merge.');
+              }
+              const { data: currentBase } = await github.rest.repos.getBranch({
+                owner, repo, branch: 'main',
+              });
+              if (pr.base.sha !== testedBase || currentBase.commit.sha !== testedBase) {
+                throw new Error('main changed after CI; update the PR and rerun CI before merging.');
+              }
+
+              const { data: result } = await github.rest.pulls.merge({
+                owner,
+                repo,
+                pull_number: pullNumber,
+                merge_method: 'squash',
+                sha: testedHead,
+              });
+              if (!result.merged) throw new Error(result.message);
+              mergeSha = result.sha;
+            }
+
+            // Merges performed with GITHUB_TOKEN do not emit push workflows.
+            // This event loads release.yml from protected main instead.
+            await github.rest.repos.createDispatchEvent({
+              owner,
+              repo,
+              event_type: 'release-merged',
+              client_payload: { source_sha: mergeSha },
+            });

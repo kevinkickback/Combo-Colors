@@ -1,46 +1,43 @@
 name: Release
 
 on:
-  workflow_call:
-    inputs:
-      source-sha:
-        description: Squash merge commit that passed the dev to main PR checks
-        required: true
-        type: string
-  workflow_dispatch:
-    inputs:
-      source-sha:
-        description: Existing release commit to rebuild and verify
-        required: true
-        type: string
+  # Manual merges emit a normal push; automated GITHUB_TOKEN merges use the
+  # repository_dispatch path created by merge.yml.
+  push:
+    branches: [main]
+  # repository_dispatch always loads this workflow from the protected default branch.
+  repository_dispatch:
+    types: [release-merged, rebuild-release]
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: read
-  id-token: write
-  attestations: write
-  artifact-metadata: write
 
 concurrency:
   group: release-main
   cancel-in-progress: false
 
 env:
-  SOURCE_SHA: ${{ inputs.source-sha }}
+  SOURCE_SHA: ${{ github.event.client_payload.source_sha || github.sha }}
+  REBUILD_EXISTING_DRAFT: ${{ github.event.action == 'rebuild-release' }}
 
 jobs:
   detect-version-change:
-    name: Detect version change
+    name: Detect package version change
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       changed: ${{ steps.version.outputs.changed }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: ${{ inputs.source-sha }}
+          ref: ${{ env.SOURCE_SHA }}
           fetch-depth: 0
           persist-credentials: false
-
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "22"
       - name: Compare package versions
         id: version
         shell: bash
@@ -54,7 +51,10 @@ jobs:
           )"
 
           if [[ "$current_version" == "$previous_version" ]]; then
-            if git rev-parse --verify --quiet "refs/tags/$current_version" >/dev/null; then
+            if [[ "$REBUILD_EXISTING_DRAFT" == "true" ]]; then
+              echo "Package version remains $current_version; rebuilding its unpublished draft."
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+            elif git rev-parse --verify --quiet "refs/tags/$current_version" >/dev/null; then
               echo "Package version remains $current_version and its tag exists; skipping release."
               echo "changed=false" >> "$GITHUB_OUTPUT"
             else
@@ -76,152 +76,199 @@ jobs:
                 echo "changed=true" >> "$GITHUB_OUTPUT"
               fi
             fi
+          elif [[ "$REBUILD_EXISTING_DRAFT" == "true" ]]; then
+            echo "Draft rebuild mode is only valid when the package version is unchanged." >&2
+            exit 1
           else
             echo "Package version changed from $previous_version to $current_version."
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
-  validate-release:
-    name: Validate merged release source
+  release-source:
+    name: Prepare release from merged PR
     needs: detect-version-change
     if: needs.detect-version-change.outputs.changed == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
-      version: ${{ steps.metadata.outputs.version }}
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: ${{ inputs.source-sha }}
+          ref: ${{ env.SOURCE_SHA }}
           fetch-depth: 0
           persist-credentials: false
-
-      - name: Require the merged dev to main PR
+          path: source
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          # Automated merges cannot modify release infrastructure. Changes to
+          # this protected validation code require an explicit maintainer merge.
+          ref: ${{ github.workflow_sha || github.sha }}
+          persist-credentials: false
+          path: trusted
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "22"
+      - name: Require a merged dev to main pull request
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          SOURCE_SHA: ${{ env.SOURCE_SHA }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pulls = await github.paginate(github.rest.repos.listPullRequestsAssociatedWithCommit, {
+              owner, repo, commit_sha: process.env.SOURCE_SHA, per_page: 100,
+            });
+            const pull = pulls.find((candidate) =>
+              candidate.merged_at &&
+              candidate.merge_commit_sha === process.env.SOURCE_SHA &&
+              candidate.base.ref === 'main' &&
+              candidate.head.ref === 'dev' &&
+              candidate.head.repo.full_name === `${owner}/${repo}`,
+            );
+            if (!pull) throw new Error(`Commit ${process.env.SOURCE_SHA} did not come from a merged dev -> main PR.`);
+      - name: Validate release version and changelog
+        id: release
         shell: bash
+        working-directory: source
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          matching_prs="$(
-            gh api "repos/$GITHUB_REPOSITORY/commits/$SOURCE_SHA/pulls" \
-              --jq "[.[] | select(.merged_at != null and .merge_commit_sha == \"$SOURCE_SHA\" and .base.ref == \"main\" and .head.ref == \"dev\" and .head.repo.full_name == \"$GITHUB_REPOSITORY\")] | length"
-          )"
-          if [[ "$matching_prs" -lt 1 ]]; then
-            echo "Commit $SOURCE_SHA did not come from a merged, same-repository dev to main PR." >&2
-            exit 1
-          fi
+          mkdir -p ../release-metadata
 
-      - name: Validate Obsidian release metadata
-        id: metadata
-        shell: bash
-        run: |
-          node scripts/release/check-release.mjs
+          lookup_releases() {
+            local output
+            if output="$(gh api --paginate \
+              "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+              --jq ".[] | select(.tag_name == \"$1\") | [.id, .draft] | @tsv" 2>&1)"; then
+              printf '%s' "$output"
+              return 0
+            fi
+            echo "$output" >&2
+            return 1
+          }
+
+          lookup_tag_sha() {
+            local output
+            if output="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$1" --jq '.object.sha' 2>&1)"; then
+              printf '%s' "$output"
+              return 0
+            fi
+            if [[ "$output" == *"HTTP 404"* ]]; then
+              return 4
+            fi
+            echo "$output" >&2
+            return 1
+          }
+
           version="$(node -p "require('./package.json').version")"
           previous_version="$(
             git show "$SOURCE_SHA^:package.json" |
               node -e 'let input = ""; process.stdin.on("data", chunk => input += chunk).on("end", () => console.log(JSON.parse(input).version))'
           )"
+          if [[ "$REBUILD_EXISTING_DRAFT" == "true" || "$version" == "$previous_version" ]]; then
+            node ../trusted/scripts/check-release.mjs \
+              --source-root . --notes-file ../release-metadata/release-notes.md
+          else
+            node ../trusted/scripts/check-release.mjs \
+              --source-root . --previous-version "$previous_version" \
+              --notes-file ../release-metadata/release-notes.md
+          fi
 
-          CURRENT_VERSION="$version" PREVIOUS_VERSION="$previous_version" node -e '
-            const fs = require("node:fs");
-            const parse = (value) => value.split(".").map(Number);
-            const compare = (left, right) => {
-              for (let index = 0; index < 3; index++) {
-                if (left[index] !== right[index]) return left[index] - right[index];
+          if [[ "$version" == "$previous_version" ]]; then
+            CURRENT_VERSION="$version" node -e '
+              const fs = require("node:fs");
+              const parse = (value) => value.split(".").map(Number);
+              const compare = (left, right) => {
+                for (let index = 0; index < 3; index++) {
+                  if (left[index] !== right[index]) return left[index] - right[index];
+                }
+                return 0;
+              };
+              const current = parse(process.env.CURRENT_VERSION);
+              const declared = Object.keys(JSON.parse(fs.readFileSync("versions.json", "utf8")))
+                .filter((candidate) => candidate !== process.env.CURRENT_VERSION)
+                .map(parse);
+              if (declared.some((candidate) => compare(candidate, current) >= 0)) {
+                throw new Error(`Unpublished ${current.join(".")} is not the highest declared plugin version.`);
               }
-              return 0;
-            };
-            const current = parse(process.env.CURRENT_VERSION);
-            const previous = parse(process.env.PREVIOUS_VERSION);
-            if (compare(current, previous) > 0) process.exit(0);
-            if (compare(current, previous) < 0) {
-              throw new Error(`Release version must increase (${previous.join(".")} -> ${current.join(".")}).`);
-            }
-            const declared = Object.keys(JSON.parse(fs.readFileSync("versions.json", "utf8")))
-              .filter((candidate) => candidate !== process.env.CURRENT_VERSION)
-              .map(parse);
-            if (declared.some((candidate) => compare(candidate, current) >= 0)) {
-              throw new Error(`Unpublished ${current.join(".")} is not the highest declared plugin version.`);
-            }
-          '
+            '
+          fi
 
-          if existing_sha="$(git rev-list -n 1 "$version" 2>/dev/null)"; then
-            if [[ "$existing_sha" != "$SOURCE_SHA" ]]; then
-              echo "Tag $version already points to $existing_sha instead of $SOURCE_SHA." >&2
+          tag="$version"
+          tag_found=false
+          if existing_sha="$(lookup_tag_sha "$tag")"; then
+            tag_found=true
+          else
+            tag_lookup_status=$?
+            if [[ "$tag_lookup_status" -ne 4 ]]; then
+              echo "Could not verify the state of tag $tag; refusing to continue." >&2
               exit 1
             fi
           fi
+
+          if ! release_info="$(lookup_releases "$tag")"; then
+            echo "Could not enumerate releases for $tag; refusing to continue." >&2
+            exit 1
+          fi
+
+          draft_count=0
+          while IFS=$'\t' read -r release_id release_is_draft; do
+            [[ -z "$release_id" ]] && continue
+            if [[ "$release_is_draft" != "true" ]]; then
+              echo "Release $tag is published; refusing to modify it." >&2
+              exit 1
+            fi
+            draft_count=$((draft_count + 1))
+          done <<<"$release_info"
+
+          if [[ "$REBUILD_EXISTING_DRAFT" == "true" ]]; then
+            echo "$draft_count existing draft(s) for $tag will be replaced after the new build validates."
+          else
+            if [[ "$tag_found" == "true" && "$existing_sha" != "$SOURCE_SHA" ]]; then
+              echo "Tag $tag points to $existing_sha instead of $SOURCE_SHA; use explicit draft rebuild mode." >&2
+              exit 1
+            fi
+            if [[ "$draft_count" -gt 0 && "$tag_found" != "true" ]]; then
+              echo "Draft $tag has no matching tag; use explicit draft rebuild mode." >&2
+              exit 1
+            fi
+          fi
+
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
-
-  create-release:
-    name: Create draft release
-    needs: validate-release
-    runs-on: ubuntu-latest
-    env:
-      RELEASE_VERSION: ${{ needs.validate-release.outputs.version }}
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - uses: actions/checkout@v6
+      - name: Preserve validated release notes
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          ref: ${{ inputs.source-sha }}
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Create version tag
-        shell: bash
-        run: |
-          if existing_sha="$(git rev-list -n 1 "$RELEASE_VERSION" 2>/dev/null)"; then
-            if [[ "$existing_sha" != "$SOURCE_SHA" ]]; then
-              echo "Tag $RELEASE_VERSION already points to $existing_sha instead of $SOURCE_SHA." >&2
-              exit 1
-            fi
-            echo "Reusing existing tag $RELEASE_VERSION."
-          else
-            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
-              -f ref="refs/tags/$RELEASE_VERSION" \
-              -f sha="$SOURCE_SHA"
-          fi
-
-      - name: Prepare release notes
-        run: node scripts/release/check-release.mjs --notes-file release-notes.md
-
-      - name: Create or refresh draft release
-        shell: bash
-        run: |
-          if is_draft="$(gh release view "$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft' 2>/dev/null)"; then
-            if [[ "$is_draft" != "true" ]]; then
-              echo "A published release already exists for $RELEASE_VERSION; refusing to replace it." >&2
-              exit 1
-            fi
-            gh release edit "$RELEASE_VERSION" \
-              --title "$RELEASE_VERSION" --notes-file release-notes.md
-          else
-            gh release create "$RELEASE_VERSION" --draft \
-              --title "$RELEASE_VERSION" --notes-file release-notes.md --verify-tag
-          fi
+          name: release-notes
+          path: release-metadata/release-notes.md
+          if-no-files-found: error
+          retention-days: 1
+          overwrite: true
 
   build:
-    name: Build, attest, and attach plugin
-    needs: [validate-release, create-release]
+    name: Build plugin
+    needs: release-source
     runs-on: ubuntu-latest
-    env:
-      RELEASE_VERSION: ${{ needs.validate-release.outputs.version }}
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: ${{ inputs.source-sha }}
+          ref: ${{ env.SOURCE_SHA }}
           persist-credentials: false
-
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: "22"
           cache: npm
-
       - name: Install dependencies
         run: npm ci
-
       - name: Build plugin
         run: npm run build
-
       - name: Verify release files
         shell: bash
         run: |
@@ -231,38 +278,237 @@ jobs:
               exit 1
             fi
           done
-
-      - name: Attest build provenance
-        uses: actions/attest@v4
+      - name: Preserve build artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          subject-path: |
+          name: release-build
+          path: |
             main.js
             manifest.json
             styles.css
+          if-no-files-found: error
+          retention-days: 1
+          overwrite: true
 
-      - name: Attach files to draft release
-        run: gh release upload "$RELEASE_VERSION" main.js manifest.json styles.css --clobber
-
-  verify-release:
-    name: Verify draft release artifacts
-    needs: [validate-release, build]
+  publish-release:
+    name: Create and populate draft release
+    needs: [release-source, build]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
     env:
-      RELEASE_VERSION: ${{ needs.validate-release.outputs.version }}
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      RELEASE_TAG: ${{ needs.release-source.outputs.tag }}
+      RELEASE_VERSION: ${{ needs.release-source.outputs.version }}
     steps:
-      - name: Verify draft and required assets
+      - name: Download validated release notes
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-notes
+          path: release-metadata
+      - name: Download build artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-build
+          path: release-artifacts
+      - name: Validate completed artifact bundle
         shell: bash
         run: |
-          is_draft="$(gh release view "$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft')"
-          assets="$(gh release view "$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')"
-          if [[ "$is_draft" != "true" ]]; then
-            echo "Release $RELEASE_VERSION is not a draft." >&2
-            exit 1
-          fi
-          for expected in main.js manifest.json styles.css; do
-            if ! grep -Fxq "$expected" <<<"$assets"; then
-              echo "Missing release asset: $expected" >&2
+          for file in main.js manifest.json styles.css; do
+            if [[ ! -s "release-artifacts/$file" ]]; then
+              echo "::error::Missing or empty completed build artifact: $file"
               exit 1
             fi
           done
+
+          shopt -s nullglob
+          artifact_files=(release-artifacts/*)
+          if [[ "${#artifact_files[@]}" -ne 3 ]]; then
+            echo "::error::Expected exactly 3 release artifacts; found ${#artifact_files[@]}."
+            printf '%s\n' "${artifact_files[@]}"
+            exit 1
+          fi
+
+          manifest_version="$(node -p "require('./release-artifacts/manifest.json').version")"
+          if [[ "$manifest_version" != "$RELEASE_VERSION" ]]; then
+            echo "::error::manifest.json version $manifest_version does not match $RELEASE_VERSION."
+            exit 1
+          fi
+      - name: Attest build provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: |
+            release-artifacts/main.js
+            release-artifacts/manifest.json
+            release-artifacts/styles.css
+      - name: Replace or create draft from completed artifacts
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          lookup_releases() {
+            local output
+            if output="$(gh api --paginate \
+              "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+              --jq ".[] | select(.tag_name == \"$RELEASE_TAG\") | [.id, .draft] | @tsv" 2>&1)"; then
+              printf '%s' "$output"
+              return 0
+            fi
+            echo "$output" >&2
+            return 1
+          }
+
+          assert_draft() {
+            local release_id="$1"
+            local state
+            if ! state="$(gh api "repos/$GITHUB_REPOSITORY/releases/$release_id" --jq '.draft')"; then
+              echo "Could not re-check release $RELEASE_TAG; refusing to modify it." >&2
+              exit 1
+            fi
+            if [[ "$state" != "true" ]]; then
+              echo "Release $RELEASE_TAG was published while this run was active; refusing to modify it." >&2
+              exit 1
+            fi
+          }
+
+          lookup_tag_sha() {
+            local output
+            if output="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" --jq '.object.sha' 2>&1)"; then
+              printf '%s' "$output"
+              return 0
+            fi
+            if [[ "$output" == *"HTTP 404"* ]]; then
+              return 4
+            fi
+            echo "$output" >&2
+            return 1
+          }
+
+          if ! release_info="$(lookup_releases)"; then
+            echo "Could not enumerate releases for $RELEASE_TAG; refusing to continue." >&2
+            exit 1
+          fi
+
+          release_ids=()
+          while IFS=$'\t' read -r release_id release_is_draft; do
+            [[ -z "$release_id" ]] && continue
+            if [[ "$release_is_draft" != "true" ]]; then
+              echo "Release $RELEASE_TAG is published; refusing to modify it." >&2
+              exit 1
+            fi
+            release_ids+=("$release_id")
+          done <<<"$release_info"
+
+          tag_found=false
+          if tag_sha="$(lookup_tag_sha)"; then
+            tag_found=true
+          else
+            tag_lookup_status=$?
+            if [[ "$tag_lookup_status" -ne 4 ]]; then
+              echo "Could not verify the state of tag $RELEASE_TAG; refusing to continue." >&2
+              exit 1
+            fi
+          fi
+
+          if [[ "$REBUILD_EXISTING_DRAFT" != "true" && "$tag_found" == "true" &&
+                "$tag_sha" != "$SOURCE_SHA" ]]; then
+            echo "Tag $RELEASE_TAG points to $tag_sha instead of $SOURCE_SHA; use explicit draft rebuild mode." >&2
+            exit 1
+          fi
+
+          for release_id in "${release_ids[@]}"; do
+            assert_draft "$release_id"
+            gh api --method DELETE "repos/$GITHUB_REPOSITORY/releases/$release_id"
+          done
+
+          if [[ "$REBUILD_EXISTING_DRAFT" == "true" ]]; then
+            if [[ "$tag_found" == "true" ]]; then
+              if ! current_tag_sha="$(lookup_tag_sha)" || [[ "$current_tag_sha" != "$tag_sha" ]]; then
+                echo "Tag $RELEASE_TAG changed during the rebuild; refusing to delete it." >&2
+                exit 1
+              fi
+              gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$RELEASE_TAG"
+            fi
+            tag_found=false
+          fi
+
+          if [[ "$tag_found" != "true" ]]; then
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f ref="refs/tags/$RELEASE_TAG" -f sha="$SOURCE_SHA"
+          fi
+
+          gh release create "$RELEASE_TAG" \
+            release-artifacts/main.js \
+            release-artifacts/manifest.json \
+            release-artifacts/styles.css \
+            --draft --title "$RELEASE_TAG" \
+            --notes-file release-metadata/release-notes.md --verify-tag
+
+  verify-release:
+    name: Verify draft release artifacts
+    needs: [release-source, publish-release]
+    runs-on: ubuntu-latest
+    # GitHub exposes draft releases only to tokens with push access. This job
+    # executes protected workflow code and performs read-only API calls.
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ needs.release-source.outputs.tag }}
+    steps:
+      - name: Verify draft, tag, and exact assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if ! release_info="$(gh api --paginate \
+            "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq ".[] | select(.tag_name == \"$RELEASE_TAG\") | [.id, .draft] | @tsv")"; then
+            echo "::error::Could not enumerate releases for $RELEASE_TAG."
+            exit 1
+          fi
+
+          release_ids=()
+          while IFS=$'\t' read -r release_id is_draft; do
+            [[ -z "$release_id" ]] && continue
+            if [[ "$is_draft" != "true" ]]; then
+              echo "::error::Release $RELEASE_TAG is not a draft."
+              exit 1
+            fi
+            release_ids+=("$release_id")
+          done <<<"$release_info"
+
+          if [[ "${#release_ids[@]}" -ne 1 ]]; then
+            echo "::error::Expected exactly one draft for $RELEASE_TAG; found ${#release_ids[@]}."
+            exit 1
+          fi
+
+          assets="$(gh api "repos/$GITHUB_REPOSITORY/releases/${release_ids[0]}" --jq '.assets[].name')"
+          tag_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" --jq '.object.sha')"
+          if [[ "$tag_sha" != "$SOURCE_SHA" ]]; then
+            echo "::error::Tag $RELEASE_TAG points to $tag_sha instead of $SOURCE_SHA."
+            exit 1
+          fi
+
+          missing=0
+          for expected in main.js manifest.json styles.css; do
+            if ! grep -Fxq "$expected" <<<"$assets"; then
+              echo "::error::Missing release asset: $expected"
+              missing=1
+            fi
+          done
+
+          asset_count="$(grep -c . <<<"$assets")"
+          if [[ "$asset_count" -ne 3 ]]; then
+            echo "::error::Expected exactly 3 release assets; found $asset_count."
+            missing=1
+          fi
+
+          if [[ "$missing" -ne 0 ]]; then
+            echo "Uploaded assets:"
+            echo "$assets"
+            exit 1
+          fi
