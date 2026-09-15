@@ -8,6 +8,7 @@ const state = vi.hoisted(() => ({
   minAppVersion: '1.2.3',
   versions: { '2.0.0': '1.2.3' } as Record<string, string>,
   changelog: '# v2.0.0\n\n- New release\n\n# v1.9.0\n\n- Previous release',
+  reads: [] as string[],
   writes: [] as Array<{ path: string; contents: string }>,
 }))
 
@@ -15,6 +16,7 @@ vi.mock('node:fs/promises', () => {
   const mock = {
     readFile: (url: URL) => {
       const path = url.pathname.replace(/\\/g, '/')
+      state.reads.push(path)
       if (path.endsWith('/package.json')) {
         return JSON.stringify({ version: state.packageVersion })
       }
@@ -52,6 +54,7 @@ beforeEach(() => {
     minAppVersion: '1.2.3',
     versions: { '2.0.0': '1.2.3' },
     changelog: '# v2.0.0\n\n- New release\n\n# v1.9.0\n\n- Previous release',
+    reads: [],
     writes: [],
   })
   process.argv = ['node', 'scripts/check-release.mjs']
@@ -68,6 +71,19 @@ async function run() {
 test('accepts synchronized Obsidian release metadata', async () => {
   await expect(run()).resolves.toBeDefined()
   expect(state.writes).toEqual([])
+})
+
+test('accepts synchronized metadata with an increased version', async () => {
+  process.argv.push('--previous-version', '1.9.0')
+  await expect(run()).resolves.toBeDefined()
+})
+
+test('accepts candidate data through an explicit source root', async () => {
+  process.argv.push('--source-root', 'candidate')
+
+  await expect(run()).resolves.toBeDefined()
+  expect(state.reads).toHaveLength(5)
+  expect(state.reads.every((path) => path.includes('/candidate/'))).toBe(true)
 })
 
 test('extracts only the current release section for draft notes', async () => {
@@ -136,4 +152,9 @@ test.each([
 ] as const)('rejects %s', async (_name, change, message) => {
   change()
   await expect(run()).rejects.toThrow(message)
+})
+
+test.each(['2.0.0', '2.1.0'])('rejects a non-increasing version after %s', async (previous) => {
+  process.argv.push('--previous-version', previous)
+  await expect(run()).rejects.toThrow(`Release version must increase (${previous} -> 2.0.0).`)
 })

@@ -15,14 +15,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: "22"
-          cache: "npm"
+          cache: npm
 
       - name: Install dependencies
         run: npm ci
@@ -31,135 +31,19 @@ jobs:
         run: npm run lint
 
       - name: Type-check
-        run: npx tsc --noEmit
+        run: npm run typecheck
 
-      - name: Test
-        run: npm run test:run
+      - name: Test with coverage thresholds
+        run: npm run test:coverage
 
       - name: Build
         run: npm run build
 
-  squash-merge:
-    name: Squash merge dev into main
-    needs: check
-    if: >-
-      github.event.pull_request.base.ref == 'main' &&
-      github.event.pull_request.head.ref == 'dev' &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      !github.event.pull_request.draft
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: write
-      pull-requests: write
-    outputs:
-      sha: ${{ steps.merge.outputs.sha }}
-    steps:
-      - name: Wait for optional Copilot review
-        continue-on-error: true
-        timeout-minutes: 11
-        uses: actions/github-script@v9
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          script: |
-            const { owner, repo } = context.repo;
-            const pull_number = context.payload.pull_request.number;
-            const expectedHead = context.payload.pull_request.head.sha;
-            const copilotLogins = new Set([
-              'copilot',
-              'copilot-pull-request-reviewer',
-              'copilot-pull-request-reviewer[bot]',
-            ]);
-            const isCopilot = (user) => {
-              const login = (user?.login ?? '').toLowerCase();
-              return copilotLogins.has(login) || (user?.type === 'Bot' && login.includes('copilot'));
-            };
-            const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
-            const startedAt = Date.now();
-            const activityGraceDeadline = startedAt + 60_000;
-            const hardDeadline = startedAt + 600_000;
-            let activeReviewSeen = false;
-
-            while (Date.now() < hardDeadline) {
-              const reviews = await github.paginate(github.rest.pulls.listReviews, {
-                owner, repo, pull_number, per_page: 100,
-              });
-              const reviewedHead = reviews.some((review) =>
-                review.commit_id === expectedHead && isCopilot(review.user),
-              );
-              if (reviewedHead) {
-                core.info(`Copilot reviewed ${expectedHead}; continuing to repository merge checks.`);
-                return;
-              }
-
-              const { data: actionRuns } = await github.rest.actions.listWorkflowRunsForRepo({
-                owner, repo, head_sha: expectedHead, per_page: 100,
-              });
-              const reviewIsActive = actionRuns.workflow_runs.some((run) =>
-                run.event === 'dynamic' &&
-                (run.path === 'dynamic/agents/copilot-pull-request-reviewer' ||
-                  run.name === 'Running Copilot Code Review'),
-              );
-
-              if (reviewIsActive && !activeReviewSeen) {
-                activeReviewSeen = true;
-                core.info('Copilot review run detected; waiting for its review of the checked revision.');
-              }
-
-              if (!activeReviewSeen && Date.now() >= activityGraceDeadline) {
-                core.notice('No active Copilot review was detected within one minute; continuing without it.');
-                return;
-              }
-
-              const remaining = hardDeadline - Date.now();
-              if (remaining <= 0) break;
-              await sleep(Math.min(10_000, remaining));
-            }
-
-            core.notice('An active Copilot review did not finish within ten minutes; continuing without it.');
-
-      - name: Merge the checked PR revision
-        id: merge
-        uses: actions/github-script@v9
-        with:
-          script: |
-            const { owner, repo } = context.repo;
-            const expected = context.payload.pull_request;
-            const { data: pr } = await github.rest.pulls.get({
-              owner, repo, pull_number: expected.number,
-            });
-            if (pr.head.sha !== expected.head.sha) {
-              throw new Error('The PR changed; its latest revision must pass checks before merging.');
-            }
-            if (pr.merged) {
-              core.setOutput('sha', pr.merge_commit_sha);
-              return;
-            }
-            if (pr.state !== 'open' || pr.draft || pr.base.ref !== 'main' ||
-                pr.head.ref !== 'dev' || pr.head.repo.full_name !== `${owner}/${repo}`) {
-              throw new Error('The PR is no longer eligible for automatic merging.');
-            }
-            const { data: base } = await github.rest.repos.getBranch({
-              owner, repo, branch: 'main',
-            });
-            if (base.commit.sha !== expected.base.sha) {
-              throw new Error('main changed during checks; update the PR before retrying.');
-            }
-            const { data: result } = await github.rest.pulls.merge({
-              owner, repo, pull_number: pr.number,
-              merge_method: 'squash', sha: expected.head.sha,
-            });
-            if (!result.merged) throw new Error(result.message);
-            core.setOutput('sha', result.sha);
-
-  release:
-    name: Release merged version
-    needs: squash-merge
-    permissions:
-      contents: write
-      pull-requests: read
-      id-token: write
-      attestations: write
-      artifact-metadata: write
-    uses: ./.github/workflows/release.yml
-    with:
-      source-sha: ${{ needs.squash-merge.outputs.sha }}
+          name: coverage-report
+          path: coverage
+          if-no-files-found: ignore
+          overwrite: true
