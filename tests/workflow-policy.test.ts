@@ -77,6 +77,7 @@ describe('workflow policy', () => {
 
     expect(workflow).toContain('Expected exactly one draft for $RELEASE_TAG')
     expect(workflow).toContain('Expected exactly 3 release assets')
+    expect(workflow).toContain('select(.size <= 0)')
   })
 
   test('pins every official action to an immutable commit', async () => {

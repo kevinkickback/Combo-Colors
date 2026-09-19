@@ -392,7 +392,9 @@ jobs:
             exit 1
           fi
 
-          assets="$(gh api "repos/$GITHUB_REPOSITORY/releases/${release_ids[0]}" --jq '.assets[].name')"
+          release_json="$(gh api "repos/$GITHUB_REPOSITORY/releases/${release_ids[0]}")"
+          assets="$(jq -r '.assets[].name' <<<"$release_json")"
+          empty_assets="$(jq -r '.assets[] | select(.size <= 0) | .name' <<<"$release_json")"
           tag_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" --jq '.object.sha')"
           if [[ "$tag_sha" != "$SOURCE_SHA" ]]; then
             echo "::error::Tag $RELEASE_TAG points to $tag_sha instead of $SOURCE_SHA."
@@ -415,6 +417,11 @@ jobs:
           asset_count="$(grep -c . <<<"$assets")"
           if [[ "$asset_count" -ne 3 ]]; then
             echo "::error::Expected exactly 3 release assets; found $asset_count."
+            missing=1
+          fi
+          if [[ -n "$empty_assets" ]]; then
+            echo "::error::Release contains empty assets:"
+            echo "$empty_assets"
             missing=1
           fi
 
