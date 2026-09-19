@@ -1,7 +1,8 @@
 name: Release
 
 on:
-  workflow_dispatch:
+  repository_dispatch:
+    types: [release-requested]
 
 permissions:
   contents: read
@@ -11,22 +12,33 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE_SHA: ${{ github.sha }}
+  SOURCE_SHA: ${{ github.event.client_payload.source_sha }}
 
 jobs:
-  release-source:
-    name: Prepare manual release draft
+  validate-source:
+    name: Validate release source
     runs-on: ubuntu-26.04
-    # Draft releases are hidden from read-only tokens. This job performs only
-    # reads, but needs write visibility so its initial snapshot includes them.
     permissions:
-      contents: write
+      contents: read
     outputs:
       tag: ${{ steps.release.outputs.tag }}
       version: ${{ steps.release.outputs.version }}
-      initial_tag_state: ${{ steps.release.outputs.initial_tag_state }}
-      initial_tag_sha: ${{ steps.release.outputs.initial_tag_sha }}
     steps:
+      - name: Require the current main revision
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          SOURCE_SHA: ${{ env.SOURCE_SHA }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const sourceSha = process.env.SOURCE_SHA ?? '';
+            if (!/^[0-9a-f]{40}$/.test(sourceSha)) {
+              throw new Error('A full main source SHA is required.');
+            }
+            const { data: branch } = await github.rest.repos.getBranch({ owner, repo, branch: 'main' });
+            if (branch.commit.sha !== sourceSha) {
+              throw new Error('main changed before release preparation; run the workflow again.');
+            }
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: ${{ env.SOURCE_SHA }}
@@ -35,103 +47,23 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: "22"
-      - name: Require the current main revision
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
-        env:
-          SOURCE_SHA: ${{ env.SOURCE_SHA }}
-        with:
-          script: |
-            const { owner, repo } = context.repo;
-            if (context.ref !== 'refs/heads/main') {
-              throw new Error('Release drafts must be created from main.');
-            }
-            const { data: branch } = await github.rest.repos.getBranch({ owner, repo, branch: 'main' });
-            if (branch.commit.sha !== process.env.SOURCE_SHA) {
-              throw new Error('main changed before release preparation; run the workflow again.');
-            }
       - name: Validate release version and changelog
         id: release
         shell: bash
         run: |
           mkdir -p release-metadata
-
-          lookup_releases() {
-            local output
-            if output="$(gh api --paginate \
-              "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
-              --jq ".[] | select(.tag_name == \"$1\") | [.id, .draft, .updated_at] | @tsv" 2>&1)"; then
-              printf '%s' "$output"
-              return 0
-            fi
-            echo "$output" >&2
-            return 1
-          }
-
-          lookup_tag_sha() {
-            local output
-            if output="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$1" --jq '.object.sha' 2>&1)"; then
-              printf '%s' "$output"
-              return 0
-            fi
-            if [[ "$output" == *"HTTP 404"* ]]; then
-              return 4
-            fi
-            echo "$output" >&2
-            return 1
-          }
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq '.[] | select(.draft == false and .prerelease == false) | .tag_name' \
+            > release-metadata/published-tags.txt
 
           version="$(node -p "require('./package.json').version")"
-          node scripts/check-release.mjs --notes-file release-metadata/release-notes.md
+          node scripts/check-release.mjs \
+            --published-tags-file release-metadata/published-tags.txt \
+            --notes-file release-metadata/release-notes.md
           tag="$version"
-
-          tag_found=false
-          if existing_sha="$(lookup_tag_sha "$tag")"; then
-            tag_found=true
-          else
-            tag_lookup_status=$?
-            if [[ "$tag_lookup_status" -ne 4 ]]; then
-              echo "Could not verify the state of tag $tag; refusing to continue." >&2
-              exit 1
-            fi
-          fi
-
-          if ! release_info="$(lookup_releases "$tag")"; then
-            echo "Could not enumerate releases for $tag; refusing to continue." >&2
-            exit 1
-          fi
-
-          draft_count=0
-          while IFS=$'\t' read -r release_id release_is_draft _release_updated_at; do
-            [[ -z "$release_id" ]] && continue
-            if [[ "$release_is_draft" != "true" ]]; then
-              echo "Release $tag is published; refusing to modify it." >&2
-              exit 1
-            fi
-            draft_count=$((draft_count + 1))
-          done <<<"$release_info"
-
-          if [[ "$tag_found" == "true" && "$existing_sha" != "$SOURCE_SHA" ]]; then
-            echo "Tag $tag points to $existing_sha instead of $SOURCE_SHA; inspect and remove the unpublished tag before rerunning." >&2
-            exit 1
-          fi
-          if [[ "$draft_count" -gt 0 ]]; then
-            echo "$draft_count draft(s) already exist for $tag; inspect and remove them before rerunning." >&2
-            exit 1
-          elif [[ "$tag_found" == "true" ]]; then
-            echo "Tag $tag already exists at the release commit; draft creation will resume after the builds finish."
-          else
-            echo "No tag or release exists for $tag; both will be created after the builds finish."
-          fi
 
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          if [[ "$tag_found" == "true" ]]; then
-            echo "initial_tag_state=present" >> "$GITHUB_OUTPUT"
-            echo "initial_tag_sha=$existing_sha" >> "$GITHUB_OUTPUT"
-          else
-            echo "initial_tag_state=missing" >> "$GITHUB_OUTPUT"
-            echo "initial_tag_sha=" >> "$GITHUB_OUTPUT"
-          fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
@@ -144,9 +76,104 @@ jobs:
           retention-days: 1
           overwrite: true
 
+  release-state:
+    name: Inspect protected release state
+    needs: validate-source
+    runs-on: ubuntu-26.04
+    # Draft releases are visible only to a token with push access. This job
+    # does not check out or execute repository-controlled code.
+    permissions:
+      contents: write
+    outputs:
+      initial_tag_state: ${{ steps.state.outputs.initial_tag_state }}
+      initial_tag_sha: ${{ steps.state.outputs.initial_tag_sha }}
+    env:
+      RELEASE_TAG: ${{ needs.validate-source.outputs.tag }}
+    steps:
+      - name: Require clean release state
+        id: state
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          lookup_releases() {
+            local output
+            if output="$(gh api --paginate \
+              "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+              --jq ".[] | select(.tag_name == \"$RELEASE_TAG\") | [.id, .draft] | @tsv" 2>&1)"; then
+              printf '%s' "$output"
+              return 0
+            fi
+            echo "$output" >&2
+            return 1
+          }
+
+          lookup_tag_sha() {
+            local output
+            if output="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" --jq '.object.sha' 2>&1)"; then
+              printf '%s' "$output"
+              return 0
+            fi
+            if [[ "$output" == *"HTTP 404"* ]]; then
+              return 4
+            fi
+            echo "$output" >&2
+            return 1
+          }
+
+          current_main_sha="$(gh api "repos/$GITHUB_REPOSITORY/branches/main" --jq '.commit.sha')"
+          if [[ "$current_main_sha" != "$SOURCE_SHA" ]]; then
+            echo "main changed before release-state inspection; run the release again." >&2
+            exit 1
+          fi
+
+          tag_found=false
+          if existing_sha="$(lookup_tag_sha)"; then
+            tag_found=true
+          else
+            tag_lookup_status=$?
+            if [[ "$tag_lookup_status" -ne 4 ]]; then
+              echo "Could not verify the state of tag $RELEASE_TAG; refusing to continue." >&2
+              exit 1
+            fi
+          fi
+
+          if ! release_info="$(lookup_releases)"; then
+            echo "Could not enumerate releases for $RELEASE_TAG; refusing to continue." >&2
+            exit 1
+          fi
+
+          draft_count=0
+          while IFS=$'\t' read -r release_id release_is_draft; do
+            [[ -z "$release_id" ]] && continue
+            if [[ "$release_is_draft" != "true" ]]; then
+              echo "Release $RELEASE_TAG is published; refusing to modify it." >&2
+              exit 1
+            fi
+            draft_count=$((draft_count + 1))
+          done <<<"$release_info"
+
+          if [[ "$tag_found" == "true" && "$existing_sha" != "$SOURCE_SHA" ]]; then
+            echo "Tag $RELEASE_TAG points to $existing_sha instead of $SOURCE_SHA; inspect and remove the unpublished tag before rerunning." >&2
+            exit 1
+          fi
+          if [[ "$draft_count" -gt 0 ]]; then
+            echo "$draft_count draft(s) already exist for $RELEASE_TAG; inspect and remove them before rerunning." >&2
+            exit 1
+          fi
+
+          if [[ "$tag_found" == "true" ]]; then
+            echo "initial_tag_state=present" >> "$GITHUB_OUTPUT"
+            echo "initial_tag_sha=$existing_sha" >> "$GITHUB_OUTPUT"
+          else
+            echo "initial_tag_state=missing" >> "$GITHUB_OUTPUT"
+            echo "initial_tag_sha=" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
     name: Build plugin
-    needs: release-source
+    needs: [validate-source, release-state]
     runs-on: ubuntu-26.04
     permissions:
       contents: read
@@ -185,7 +212,7 @@ jobs:
 
   publish-release:
     name: Create and populate draft release
-    needs: [release-source, build]
+    needs: [validate-source, release-state, build]
     runs-on: ubuntu-26.04
     permissions:
       contents: write
@@ -193,10 +220,10 @@ jobs:
       attestations: write
       artifact-metadata: write
     env:
-      RELEASE_TAG: ${{ needs.release-source.outputs.tag }}
-      RELEASE_VERSION: ${{ needs.release-source.outputs.version }}
-      INITIAL_TAG_STATE: ${{ needs.release-source.outputs.initial_tag_state }}
-      INITIAL_TAG_SHA: ${{ needs.release-source.outputs.initial_tag_sha }}
+      RELEASE_TAG: ${{ needs.validate-source.outputs.tag }}
+      RELEASE_VERSION: ${{ needs.validate-source.outputs.version }}
+      INITIAL_TAG_STATE: ${{ needs.release-state.outputs.initial_tag_state }}
+      INITIAL_TAG_SHA: ${{ needs.release-state.outputs.initial_tag_sha }}
     steps:
       - name: Download validated release notes
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -354,16 +381,21 @@ jobs:
 
   verify-release:
     name: Verify draft release artifacts
-    needs: [release-source, publish-release]
+    needs: [validate-source, publish-release]
     runs-on: ubuntu-26.04
     # GitHub exposes draft releases only to tokens with push access. This job
     # executes protected workflow code and performs read-only API calls.
     permissions:
       contents: write
     env:
-      RELEASE_TAG: ${{ needs.release-source.outputs.tag }}
-      RELEASE_VERSION: ${{ needs.release-source.outputs.version }}
+      RELEASE_TAG: ${{ needs.validate-source.outputs.tag }}
+      RELEASE_VERSION: ${{ needs.validate-source.outputs.version }}
     steps:
+      - name: Download validated release notes
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-notes
+          path: release-metadata
       - name: Verify draft and artifacts
         shell: bash
         env:
@@ -395,6 +427,15 @@ jobs:
           release_json="$(gh api "repos/$GITHUB_REPOSITORY/releases/${release_ids[0]}")"
           assets="$(jq -r '.assets[].name' <<<"$release_json")"
           empty_assets="$(jq -r '.assets[] | select(.size <= 0) | .name' <<<"$release_json")"
+          actual_notes="$(jq -r '.body // ""' <<<"$release_json")"
+          expected_notes="$(cat release-metadata/release-notes.md)"
+          if [[ "$actual_notes" != "$expected_notes" ]]; then
+            echo "::error::Release notes do not match the validated changelog."
+            diff -u \
+              <(printf '%s\n' "$expected_notes") \
+              <(printf '%s\n' "$actual_notes") || true
+            exit 1
+          fi
           tag_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" --jq '.object.sha')"
           if [[ "$tag_sha" != "$SOURCE_SHA" ]]; then
             echo "::error::Tag $RELEASE_TAG points to $tag_sha instead of $SOURCE_SHA."

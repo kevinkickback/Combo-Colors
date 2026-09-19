@@ -27,20 +27,37 @@ describe('workflow policy', () => {
     await expect(access(workflowPath('merge.yml'))).rejects.toThrow()
   })
 
-  test('creates an exact draft only from a manual current-main dispatch', async () => {
+  test('creates an exact draft only from a protected current-main dispatch', async () => {
     const workflow = await readWorkflow('release.yml')
 
-    expect(workflow).toContain('workflow_dispatch:')
-    expect(workflow).not.toContain('repository_dispatch:')
+    expect(workflow).toContain('repository_dispatch:')
+    expect(workflow).toContain('types: [release-requested]')
+    expect(workflow).not.toContain('workflow_dispatch:')
     expect(workflow).not.toContain('push:\n    branches: [main]')
     expect(workflow).toContain('Require the current main revision')
-    expect(workflow).toContain("context.ref !== 'refs/heads/main'")
-    expect(workflow).toContain('branch.commit.sha !== process.env.SOURCE_SHA')
-    expect(workflow).toContain('node scripts/check-release.mjs --notes-file')
+    expect(workflow).toContain('A full main source SHA is required.')
+    expect(workflow).toContain('branch.commit.sha !== sourceSha')
+    expect(workflow).toContain('--published-tags-file release-metadata/published-tags.txt')
     expect(workflow).toContain('tag="$version"')
-    expect(workflow).toContain('draft(s) already exist for $tag')
-    expect(workflow).toContain('Tag $tag points to $existing_sha instead of $SOURCE_SHA')
+    expect(workflow).toContain('draft(s) already exist for $RELEASE_TAG')
+    expect(workflow).toContain('Tag $RELEASE_TAG points to $existing_sha instead of $SOURCE_SHA')
     expect(workflow).not.toContain('rebuild-release')
+
+    const validateJob = workflow.slice(
+      workflow.indexOf('\n  validate-source:'),
+      workflow.indexOf('\n  release-state:'),
+    )
+    expect(validateJob).toContain('permissions:\n      contents: read')
+    expect(validateJob).toContain('node scripts/check-release.mjs')
+    expect(validateJob).not.toContain('contents: write')
+
+    const releaseStateJob = workflow.slice(
+      workflow.indexOf('\n  release-state:'),
+      workflow.indexOf('\n  build:'),
+    )
+    expect(releaseStateJob).toContain('permissions:\n      contents: write')
+    expect(releaseStateJob).not.toContain('actions/checkout')
+    expect(releaseStateJob).not.toContain('scripts/check-release.mjs')
 
     const buildJob = workflow.slice(
       workflow.indexOf('\n  build:'),
@@ -78,6 +95,7 @@ describe('workflow policy', () => {
     expect(workflow).toContain('Expected exactly one draft for $RELEASE_TAG')
     expect(workflow).toContain('Expected exactly 3 release assets')
     expect(workflow).toContain('select(.size <= 0)')
+    expect(workflow).toContain('Release notes do not match the validated changelog.')
   })
 
   test('pins every official action to an immutable commit', async () => {

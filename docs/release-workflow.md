@@ -71,19 +71,31 @@ normal pull request to `main` and enable squash auto-merge.
 
 ### 2. Manually create the draft
 
-After the release pull request reaches `main`, open **Actions → Release → Run workflow**, select
-`main`, and run it.
+After the release pull request reaches `main`, fetch its exact revision and send the manual release
+request:
+
+```bash
+git fetch origin main
+gh api --method POST repos/kevinkickback/Combo-Colors/dispatches \
+  -f event_type=release-requested \
+  -f "client_payload[source_sha]=$(git rev-parse origin/main)"
+```
+
+Repository dispatch always loads the workflow from protected `main`; the supplied revision must
+still be the current `main` head when validation and draft creation run.
 
 The workflow:
 
-1. Requires the dispatched revision to be the current `main` head.
-2. Validates stable version metadata and the matching changelog section.
-3. Refuses to modify any existing release or move an existing tag.
-4. Builds the plugin without repository write credentials.
-5. Validates the exact `main.js`, `manifest.json`, and `styles.css` bundle.
-6. Re-checks that no release appeared and repeatedly verifies `main` and the tag immediately before
+1. Requires a full source revision that is the current `main` head.
+2. Validates stable version metadata, the matching changelog, and a version newer than every
+   published stable release in a read-only job.
+3. Inspects draft and tag state in a separate job that executes no repository code.
+4. Refuses to modify any existing release or move an existing tag.
+5. Builds the plugin without repository write credentials.
+6. Validates the exact `main.js`, `manifest.json`, and `styles.css` bundle.
+7. Re-checks that no release appeared and repeatedly verifies `main` and the tag immediately before
    creating the draft.
-7. Records build provenance, creates one clean draft, and verifies its tag and assets.
+8. Records build provenance, creates one clean draft, and verifies its notes, tag, and assets.
 
 The workflow never publishes the release. Review the release notes, all three assets, an installed
 plugin test, and any advisory review findings before publishing the draft manually.
