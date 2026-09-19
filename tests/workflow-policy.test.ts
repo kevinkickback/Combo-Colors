@@ -1,102 +1,86 @@
-import { readFile } from 'node:fs/promises'
+import { access, readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { describe, expect, test } from 'vitest'
 
-const readWorkflow = (name: string) =>
-  readFile(resolve(process.cwd(), '.github', 'workflows', name), 'utf8')
+const workflowPath = (name: string) => resolve(process.cwd(), '.github', 'workflows', name)
+const readWorkflow = async (name: string) =>
+  (await readFile(workflowPath(name), 'utf8')).replace(/\r\n/g, '\n')
 
-describe('trusted workflow policy', () => {
-  test('keeps pull request CI read-only', async () => {
+describe('workflow policy', () => {
+  test('keeps pull-request CI read-only and scoped to main', async () => {
     const workflow = await readWorkflow('ci.yml')
 
+    expect(workflow).toContain('pull_request:')
+    expect(workflow).toContain('branches: [main]')
+    expect(workflow).not.toContain('branches: [dev, main]')
     expect(workflow).toContain('permissions:\n  contents: read')
     expect(workflow).toContain('name: Lint, type-check, and test')
+    expect(workflow).toContain('run: npm run version:check')
     expect(workflow).toContain('run: npm run test:coverage')
+    expect(workflow).toContain('runs-on: ubuntu-26.04')
     expect(workflow).not.toContain('contents: write')
     expect(workflow).not.toContain('pull-requests: write')
-    expect(workflow).not.toContain('actions/github-script')
-    expect(workflow).not.toContain('workflows/release.yml')
+    expect(workflow).not.toContain('github.rest.pulls.merge')
   })
 
-  test('auto-merges only the exact tested application revision', async () => {
-    const workflow = await readWorkflow('merge.yml')
-
-    expect(workflow).toContain('workflow_run:')
-    expect(workflow).toContain('github.rest.actions.listJobsForWorkflowRun')
-    expect(workflow).toContain("'Lint, type-check, and test'")
-    expect(workflow).toContain("matches[0].conclusion !== 'success'")
-    expect(workflow).toContain("pr.base.ref !== 'main'")
-    expect(workflow).toContain("pr.head.ref !== 'dev'")
-    expect(workflow).toContain('github.rest.pulls.listFiles')
-    expect(workflow).toContain("path.startsWith('.github/workflows/')")
-    expect(workflow).toContain("path.startsWith('.github/scripts/')")
-    expect(workflow).toContain("path === 'scripts/check-release.mjs'")
-    expect(workflow).toContain('Release infrastructure changes require a manual merge')
-    expect(workflow).toContain('pr.base.sha !== testedBase')
-    expect(workflow).toContain('currentBase.commit.sha !== testedBase')
-    expect(workflow).toContain('sha: testedHead')
-    expect(workflow).toContain("event_type: 'release-merged'")
-    expect(workflow).toContain('github.rest.repos.createDispatchEvent')
-
-    expect(workflow).not.toContain('actions/checkout')
-    expect(workflow).not.toContain('actions/setup-node')
-    expect(workflow).not.toContain('npm ci')
+  test('uses GitHub native merging instead of a privileged merge workflow', async () => {
+    await expect(access(workflowPath('merge.yml'))).rejects.toThrow()
   })
 
-  test('builds without write credentials and publishes only a complete exact bundle', async () => {
+  test('creates an exact draft only from a manual current-main dispatch', async () => {
     const workflow = await readWorkflow('release.yml')
 
-    expect(workflow).toContain('push:')
-    expect(workflow).toContain('branches: [main]')
-    expect(workflow).toContain('repository_dispatch:')
-    expect(workflow).toContain('types: [release-merged, rebuild-release]')
-    expect(workflow).not.toContain('workflow_call:')
-    expect(workflow).not.toContain('workflow_dispatch:')
-    expect(workflow).toContain(`ref: \${{ github.workflow_sha || github.sha }}`)
-    expect(workflow).toContain('node ../trusted/scripts/check-release.mjs')
-    expect(workflow).toContain('--source-root . --notes-file ../release-metadata/release-notes.md')
-    expect(workflow).not.toContain('node scripts/check-release.mjs')
+    expect(workflow).toContain('workflow_dispatch:')
+    expect(workflow).not.toContain('repository_dispatch:')
+    expect(workflow).not.toContain('push:\n    branches: [main]')
+    expect(workflow).toContain('Require the current main revision')
+    expect(workflow).toContain("context.ref !== 'refs/heads/main'")
+    expect(workflow).toContain('branch.commit.sha !== process.env.SOURCE_SHA')
+    expect(workflow).toContain('node scripts/check-release.mjs --notes-file')
+    expect(workflow).toContain('tag="$version"')
+    expect(workflow).toContain('draft(s) already exist for $tag')
+    expect(workflow).toContain('Tag $tag points to $existing_sha instead of $SOURCE_SHA')
+    expect(workflow).not.toContain('rebuild-release')
 
     const buildJob = workflow.slice(
       workflow.indexOf('\n  build:'),
       workflow.indexOf('\n  publish-release:'),
     )
+    expect(buildJob).toContain('runs-on: ubuntu-26.04')
     expect(buildJob).toContain('permissions:\n      contents: read')
-    expect(buildJob).toContain('name: Preserve build artifacts')
+    expect(buildJob).toContain('run: npm run build')
+    expect(buildJob).toContain('main.js')
+    expect(buildJob).toContain('manifest.json')
+    expect(buildJob).toContain('styles.css')
     expect(buildJob).not.toContain('GH_TOKEN')
     expect(buildJob).not.toContain('contents: write')
-    expect(buildJob).not.toContain('id-token: write')
 
     const publishJob = workflow.slice(
       workflow.indexOf('\n  publish-release:'),
       workflow.indexOf('\n  verify-release:'),
     )
-    expect(publishJob).not.toContain('actions/checkout')
-    expect(publishJob).toContain('contents: write')
-    expect(publishJob).toContain('Validate completed artifact bundle')
-    expect(publishJob).toContain('Expected exactly 3 release artifacts')
-    expect(publishJob).toContain('Attest build provenance')
-    expect(publishJob).toContain('Replace or create draft from completed artifacts')
-    expect(publishJob).toContain(['for release_id in "$', '{release_ids[@]}"'].join(''))
-    expect(publishJob).toContain('assert_draft "$release_id"')
-    expect(publishJob).not.toContain('gh release upload')
-
     const validateIndex = publishJob.indexOf('Validate completed artifact bundle')
     const attestIndex = publishJob.indexOf('Attest build provenance')
-    const mutateIndex = publishJob.indexOf('Replace or create draft from completed artifacts')
+    const mutateIndex = publishJob.indexOf('Create draft from completed artifacts')
     expect(validateIndex).toBeGreaterThan(-1)
     expect(validateIndex).toBeLessThan(attestIndex)
     expect(attestIndex).toBeLessThan(mutateIndex)
+    expect(publishJob).toContain('Expected exactly 3 release artifacts')
+    expect(publishJob).toContain('manifest.json version $manifest_version does not match')
+    expect(publishJob).toContain('assert_current_main')
+    expect(publishJob).toContain('assert_no_releases')
+    expect(publishJob).toContain('gh release create "$RELEASE_TAG" release-artifacts/*')
+    expect(publishJob).not.toContain('gh release edit')
+    expect(publishJob).not.toContain('gh release upload')
+    expect(publishJob).not.toContain('--method DELETE')
+    expect(publishJob).not.toContain('--method PATCH')
 
     expect(workflow).toContain('Expected exactly one draft for $RELEASE_TAG')
     expect(workflow).toContain('Expected exactly 3 release assets')
-    expect(workflow).toContain('Tag $RELEASE_TAG points to $tag_sha instead of $SOURCE_SHA')
   })
 
   test('pins every official action to an immutable commit', async () => {
-    const workflows = await Promise.all(
-      ['ci.yml', 'merge.yml', 'release.yml'].map((name) => readWorkflow(name)),
-    )
+    const workflows = await Promise.all(['ci.yml', 'release.yml'].map(readWorkflow))
     const actionUses = workflows.flatMap((workflow) =>
       [...workflow.matchAll(/uses:\s+(actions\/[^@\s]+)@([^\s#]+)/g)].map((match) => ({
         action: match[1],
@@ -108,8 +92,8 @@ describe('trusted workflow policy', () => {
     expect(actionUses.every(({ revision }) => /^[0-9a-f]{40}$/.test(revision))).toBe(true)
   })
 
-  test('uses Node 22 for every repository-run Node step', async () => {
-    const workflows = await Promise.all(['ci.yml', 'release.yml'].map((name) => readWorkflow(name)))
+  test('uses Node 22 for every repository-run Node job', async () => {
+    const workflows = await Promise.all(['ci.yml', 'release.yml'].map(readWorkflow))
     const nodeVersions = workflows.flatMap((workflow) =>
       [
         ...workflow.matchAll(
@@ -118,7 +102,6 @@ describe('trusted workflow policy', () => {
       ].map((match) => match[1]),
     )
 
-    expect(nodeVersions.length).toBeGreaterThan(0)
-    expect(nodeVersions.every((version) => version === '22')).toBe(true)
+    expect(nodeVersions).toEqual(['22', '22', '22'])
   })
 })

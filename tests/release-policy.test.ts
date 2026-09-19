@@ -73,19 +73,6 @@ test('accepts synchronized Obsidian release metadata', async () => {
   expect(state.writes).toEqual([])
 })
 
-test('accepts synchronized metadata with an increased version', async () => {
-  process.argv.push('--previous-version', '1.9.0')
-  await expect(run()).resolves.toBeDefined()
-})
-
-test('accepts candidate data through an explicit source root', async () => {
-  process.argv.push('--source-root', 'candidate')
-
-  await expect(run()).resolves.toBeDefined()
-  expect(state.reads).toHaveLength(5)
-  expect(state.reads.every((path) => path.includes('/candidate/'))).toBe(true)
-})
-
 test('extracts only the current release section for draft notes', async () => {
   process.argv.push('--notes-file', 'release-notes.md')
 
@@ -97,6 +84,12 @@ test('extracts only the current release section for draft notes', async () => {
       contents: '- New release\n',
     },
   ])
+})
+
+test('rejects unsupported command-line options', async () => {
+  process.argv.push('--source-root', 'candidate')
+
+  await expect(run()).rejects.toThrow('Unknown argument: --source-root')
 })
 
 test.each([
@@ -152,9 +145,4 @@ test.each([
 ] as const)('rejects %s', async (_name, change, message) => {
   change()
   await expect(run()).rejects.toThrow(message)
-})
-
-test.each(['2.0.0', '2.1.0'])('rejects a non-increasing version after %s', async (previous) => {
-  process.argv.push('--previous-version', previous)
-  await expect(run()).rejects.toThrow(`Release version must increase (${previous} -> 2.0.0).`)
 })

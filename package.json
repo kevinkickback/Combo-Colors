@@ -16,6 +16,7 @@
     "test:coverage": "vitest run --coverage",
     "test:run": "vitest run",
     "test:watch": "vitest watch",
+    "version:check": "node scripts/check-release.mjs",
     "version": "node scripts/bump-version.mjs && git add manifest.json versions.json"
   },
   "keywords": [],
