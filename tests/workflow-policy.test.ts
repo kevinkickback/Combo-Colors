@@ -50,6 +50,18 @@ describe('workflow policy', () => {
     expect(validateJob).toContain('permissions:\n      contents: read')
     expect(validateJob).toContain('node scripts/check-release.mjs')
     expect(validateJob).not.toContain('contents: write')
+    const fetchTagsIndex = validateJob.indexOf('Fetch published release tags')
+    const validateReleaseIndex = validateJob.indexOf('Validate release version and changelog')
+    const preserveNotesIndex = validateJob.indexOf('Preserve validated release notes')
+    expect(fetchTagsIndex).toBeGreaterThan(-1)
+    expect(fetchTagsIndex).toBeLessThan(validateReleaseIndex)
+    expect(validateReleaseIndex).toBeLessThan(preserveNotesIndex)
+    const fetchTagsStep = validateJob.slice(fetchTagsIndex, validateReleaseIndex)
+    const validateReleaseStep = validateJob.slice(validateReleaseIndex, preserveNotesIndex)
+    expect(fetchTagsStep).toContain('GH_TOKEN')
+    expect(fetchTagsStep).not.toContain('scripts/check-release.mjs')
+    expect(validateReleaseStep).toContain('scripts/check-release.mjs')
+    expect(validateReleaseStep).not.toContain('GH_TOKEN')
 
     const releaseStateJob = workflow.slice(
       workflow.indexOf('\n  release-state:'),
