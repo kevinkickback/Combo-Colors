@@ -80,6 +80,23 @@ The trash button beside the Active profile menu deletes the selected custom prof
 | `1080` | Triple Circle |
 | `2369` / `tk` | Tiger Knee |
 
+## Development
+
+The esbuild, Vitest, ESLint, and Stylelint configs live in `config/`. From the repository root, run
+`npm run build` to bundle the plugin, `npm run test:run` to run the test suite, or `npm run lint` to
+run the lint checks.
+
+To use the recommended VS Code extensions with the relocated lint configs, add these entries to
+your local `.vscode/settings.json`.
+
+```json
+{
+  "eslint.workingDirectories": ["./"],
+  "eslint.options": { "overrideConfigFile": "config/eslint.config.mjs" },
+  "stylelint.configFile": "config/.stylelintrc.json"
+}
+```
+
 ## Notes
 
 Combo Colors is intended to be used with reading view. Live preview is not supported.
