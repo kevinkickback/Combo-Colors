@@ -6,8 +6,9 @@ export default defineConfig([
   {
     languageOptions: {
       parserOptions: {
+        tsconfigRootDir: `${import.meta.dirname}/..`,
         projectService: {
-          allowDefaultProject: ['eslint.config.*'],
+          allowDefaultProject: ['config/eslint.config.mjs'],
         },
       },
     },
@@ -18,8 +19,8 @@ export default defineConfig([
       'main.js',
       'node_modules/**',
       '.github/**',
-      'esbuild.config.mjs',
-      'vitest.config.mts',
+      'config/esbuild.config.mjs',
+      'config/vitest.config.mts',
       'scripts/**',
     ],
   },
